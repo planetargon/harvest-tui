@@ -848,8 +848,7 @@ func (m Model) renderHelpView() string {
 		"  n         New entry",
 		"  e         Edit entry",
 		"  d         Delete entry",
-		"  s         Start/restart timer",
-		"  S         Stop timer",
+		"  s         Start/stop timer",
 	)
 
 	general := lipgloss.JoinVertical(lipgloss.Left,
@@ -1121,33 +1120,23 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.Start):
+	case key.Matches(msg, keys.StartStop):
 		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries) {
 			selectedEntry := m.timeEntries[m.selectedEntryIndex]
 			if selectedEntry.IsLocked {
-				m.statusMessage = "Cannot start locked time entry."
+				if selectedEntry.IsRunning {
+					m.statusMessage = "Cannot stop locked time entry."
+				} else {
+					m.statusMessage = "Cannot start locked time entry."
+				}
 				return m, nil
 			}
+			// Toggle: if running, stop it; if stopped, start it
 			if selectedEntry.IsRunning {
-				m.statusMessage = "Timer is already running for this entry."
-				return m, nil
+				return m, stopTimeEntryCmd(m.harvestClient, selectedEntry.ID)
+			} else {
+				return m, restartTimeEntryCmd(m.harvestClient, selectedEntry.ID)
 			}
-			return m, restartTimeEntryCmd(m.harvestClient, selectedEntry.ID)
-		}
-		return m, nil
-
-	case key.Matches(msg, keys.Stop):
-		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries) {
-			selectedEntry := m.timeEntries[m.selectedEntryIndex]
-			if selectedEntry.IsLocked {
-				m.statusMessage = "Cannot stop locked time entry."
-				return m, nil
-			}
-			if !selectedEntry.IsRunning {
-				m.statusMessage = "Timer is not running for this entry."
-				return m, nil
-			}
-			return m, stopTimeEntryCmd(m.harvestClient, selectedEntry.ID)
 		}
 		return m, nil
 	}

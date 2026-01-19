@@ -17,11 +17,10 @@ type KeyMap struct {
 	Today   key.Binding
 
 	// Time entry actions
-	New    key.Binding
-	Edit   key.Binding
-	Delete key.Binding
-	Start  key.Binding
-	Stop   key.Binding
+	New         key.Binding
+	Edit        key.Binding
+	Delete      key.Binding
+	StartStop   key.Binding
 
 	// Selection and confirmation
 	Select  key.Binding
@@ -85,13 +84,9 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("d"),
 			key.WithHelp("d", "delete entry"),
 		),
-		Start: key.NewBinding(
+		StartStop: key.NewBinding(
 			key.WithKeys("s"),
-			key.WithHelp("s", "start/restart timer"),
-		),
-		Stop: key.NewBinding(
-			key.WithKeys("S"),
-			key.WithHelp("S", "stop timer"),
+			key.WithHelp("s", "start/stop timer"),
 		),
 
 		// Selection and confirmation
@@ -131,7 +126,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		// First column: Navigation
 		{k.Up, k.Down, k.PrevDay, k.NextDay, k.Today},
 		// Second column: Actions
-		{k.New, k.Edit, k.Delete, k.Start, k.Stop},
+		{k.New, k.Edit, k.Delete, k.StartStop},
 		// Third column: General
 		{k.Select, k.Help, k.Back, k.Quit},
 	}
@@ -141,7 +136,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 func (k KeyMap) ListViewHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.PrevDay, k.NextDay, k.Today},
-		{k.New, k.Edit, k.Delete, k.Start, k.Stop},
+		{k.New, k.Edit, k.Delete, k.StartStop},
 		{k.Help, k.Quit},
 	}
 }

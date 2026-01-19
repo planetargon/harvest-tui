@@ -53,8 +53,8 @@ func TestTimerControl(t *testing.T) {
 		}
 		model.selectedEntryIndex = 0
 
-		// Press 'S' to stop timer
-		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("S")}
+		// Press 's' to stop timer (toggle)
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")}
 		_, cmd := model.Update(msg)
 
 		// Should return a command to stop the timer
@@ -106,8 +106,8 @@ func TestTimerControl(t *testing.T) {
 		}
 		model.selectedEntryIndex = 0
 
-		// Press 'S' to stop timer
-		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("S")}
+		// Press 's' to stop timer (toggle)
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")}
 		updatedModel, cmd := model.Update(msg)
 
 		// Should not return a command
@@ -121,7 +121,7 @@ func TestTimerControl(t *testing.T) {
 		}
 	})
 
-	t.Run("given already running entry when start key pressed then shows error", func(t *testing.T) {
+	t.Run("given already running entry when start key pressed then stops timer", func(t *testing.T) {
 		model := NewModel(cfg, client, appState)
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
@@ -135,49 +135,16 @@ func TestTimerControl(t *testing.T) {
 		}
 		model.selectedEntryIndex = 0
 
-		// Press 's' to start timer
+		// Press 's' to stop timer (toggle)
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")}
-		updatedModel, cmd := model.Update(msg)
+		_, cmd := model.Update(msg)
 
-		// Should not return a command
-		if cmd != nil {
-			t.Error("expected no command for already running entry, got command")
-		}
-
-		// Should show error message
-		if updatedModel.(Model).statusMessage != "Timer is already running for this entry." {
-			t.Errorf("expected already running message, got '%s'", updatedModel.(Model).statusMessage)
+		// Should return a command to stop the timer
+		if cmd == nil {
+			t.Error("expected command to stop timer, got nil")
 		}
 	})
 
-	t.Run("given stopped entry when stop key pressed then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
-		model.currentView = ViewList
-		model.timeEntries = []harvest.TimeEntry{
-			{
-				ID:        1,
-				Hours:     1.5,
-				Notes:     "Test entry",
-				IsRunning: false,
-				IsLocked:  false,
-			},
-		}
-		model.selectedEntryIndex = 0
-
-		// Press 'S' to stop timer
-		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("S")}
-		updatedModel, cmd := model.Update(msg)
-
-		// Should not return a command
-		if cmd != nil {
-			t.Error("expected no command for stopped entry, got command")
-		}
-
-		// Should show error message
-		if updatedModel.(Model).statusMessage != "Timer is not running for this entry." {
-			t.Errorf("expected not running message, got '%s'", updatedModel.(Model).statusMessage)
-		}
-	})
 
 	t.Run("given timer start succeeds when message received then updates entry", func(t *testing.T) {
 		model := NewModel(cfg, client, appState)

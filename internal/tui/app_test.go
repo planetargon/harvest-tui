@@ -868,7 +868,7 @@ func TestStartStopTimerActions(t *testing.T) {
 		}
 	})
 
-	t.Run("given model with running entry when 's' pressed then shows already running message", func(t *testing.T) {
+	t.Run("given model with running entry when 's' pressed then stops timer", func(t *testing.T) {
 		model := NewModel(cfg, client, appState)
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -880,11 +880,16 @@ func TestStartStopTimerActions(t *testing.T) {
 		model.selectedEntryIndex = 0
 
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
-		newModel, _ := model.handleListViewKeys(msg)
+		newModel, cmd := model.handleListViewKeys(msg)
 		m := newModel.(Model)
 
-		if !strings.Contains(m.statusMessage, "already running") {
-			t.Errorf("expected status message about already running, got '%s'", m.statusMessage)
+		if cmd == nil {
+			t.Error("expected stop timer command to be returned")
+		}
+
+		// Model should remain in ViewList
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
 		}
 	})
 
@@ -908,50 +913,26 @@ func TestStartStopTimerActions(t *testing.T) {
 		}
 	})
 
-	t.Run("given model with running unlocked entry when 'S' pressed then stops timer", func(t *testing.T) {
+	t.Run("given model with locked running entry when 's' pressed then shows locked message", func(t *testing.T) {
 		model := NewModel(cfg, client, appState)
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
-				IsLocked:  false,
+				IsLocked:  true,
 				IsRunning: true,
 			},
 		}
 		model.selectedEntryIndex = 0
 
-		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}}
-		newModel, cmd := model.handleListViewKeys(msg)
-		m := newModel.(Model)
-
-		if cmd == nil {
-			t.Error("expected stop timer command to be returned")
-		}
-
-		// Model should remain in ViewList
-		if m.currentView != ViewList {
-			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
-		}
-	})
-
-	t.Run("given model with stopped entry when 'S' pressed then shows not running message", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
-		model.timeEntries = []harvest.TimeEntry{
-			{
-				ID:        1,
-				IsLocked:  false,
-				IsRunning: false,
-			},
-		}
-		model.selectedEntryIndex = 0
-
-		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}}
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
 		newModel, _ := model.handleListViewKeys(msg)
 		m := newModel.(Model)
 
-		if !strings.Contains(m.statusMessage, "not running") {
-			t.Errorf("expected status message about not running, got '%s'", m.statusMessage)
+		if !strings.Contains(m.statusMessage, "Cannot stop locked") {
+			t.Errorf("expected status message about locked entry, got '%s'", m.statusMessage)
 		}
 	})
+
 }
 
 func TestGlobalKeyHandling(t *testing.T) {
