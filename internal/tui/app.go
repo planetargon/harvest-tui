@@ -65,14 +65,14 @@ type Model struct {
 	newEntryNotes        string
 	newEntryHours        string
 	newEntryBillable     bool
-	newEntryCurrentField int // 0=project, 1=task, 2=notes, 3=duration, 4=billable
+	newEntryCurrentField int // 0=project, 1=task, 2=notes, 3=duration
 
 	// Edit entry state
 	editingEntry     *harvest.TimeEntry
 	editNotes        string
 	editHours        string
 	editBillable     bool
-	editCurrentField int // 0=notes, 1=duration, 2=billable
+	editCurrentField int // 0=notes, 1=duration
 
 	// UI state
 	loading       bool
@@ -859,23 +859,10 @@ func (m Model) renderEditForm(width int) string {
 	}
 	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, durationLabel, " ", durationView))
 
-	// Billable field
-	billableLabel := "Billable:"
-	if m.editCurrentField == 2 {
-		billableLabel = styles.HighlightText.Render("▶ Billable:")
-	} else {
-		billableLabel = styles.SecondaryText.Render("  Billable:")
-	}
-	billableStatus := "[ ] Non-billable"
-	if m.editBillable {
-		billableStatus = "[x] Billable"
-	}
-	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, billableLabel, " ", billableStatus))
-
 	fields := lipgloss.JoinVertical(lipgloss.Left, fieldViews...)
 
 	// Instructions
-	instructions := styles.SecondaryText.Render("Tab/Shift+Tab to navigate • Space/B to toggle billable • Enter to save • Esc to cancel")
+	instructions := styles.SecondaryText.Render("Tab/Shift+Tab to navigate • Enter to save • Esc to cancel")
 
 	// Status message if any
 	statusMsg := ""
@@ -1302,7 +1289,7 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		// Check if we're coming from new entry form
-		if m.newEntryCurrentField >= 0 && m.newEntryCurrentField <= 4 {
+		if m.newEntryCurrentField >= 0 && m.newEntryCurrentField <= 3 {
 			// Return to new entry form
 			m.currentView = ViewNewEntry
 			return m, nil
@@ -1441,7 +1428,7 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "tab":
 		// Move to next field
-		m.editCurrentField = (m.editCurrentField + 1) % 3
+		m.editCurrentField = (m.editCurrentField + 1) % 2
 		// Update focus based on current field
 		if m.editCurrentField == 0 && m.editNotesInput != nil {
 			m.editNotesInput.Focus()
@@ -1452,21 +1439,13 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.editDurationInput.Focus()
 			if m.editNotesInput != nil {
 				m.editNotesInput.Blur()
-			}
-		} else if m.editCurrentField == 2 {
-			// Billable field - blur both inputs
-			if m.editNotesInput != nil {
-				m.editNotesInput.Blur()
-			}
-			if m.editDurationInput != nil {
-				m.editDurationInput.Blur()
 			}
 		}
 		return m, nil
 
 	case "shift+tab":
-		// Move to previous field
-		m.editCurrentField = (m.editCurrentField - 1 + 3) % 3
+		// Move to previous field  
+		m.editCurrentField = (m.editCurrentField - 1 + 2) % 2
 		// Update focus based on current field
 		if m.editCurrentField == 0 && m.editNotesInput != nil {
 			m.editNotesInput.Focus()
@@ -1478,21 +1457,6 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.editNotesInput != nil {
 				m.editNotesInput.Blur()
 			}
-		} else if m.editCurrentField == 2 {
-			// Billable field - blur both inputs
-			if m.editNotesInput != nil {
-				m.editNotesInput.Blur()
-			}
-			if m.editDurationInput != nil {
-				m.editDurationInput.Blur()
-			}
-		}
-		return m, nil
-
-	case " ", "b":
-		// Toggle billable if on billable field
-		if m.editCurrentField == 2 {
-			m.editBillable = !m.editBillable
 		}
 		return m, nil
 
@@ -1748,7 +1712,6 @@ func (m Model) createTimeEntry() tea.Cmd {
 		SpentDate:  m.currentDate.Format("2006-01-02"),
 		Hours:      hours,
 		Notes:      m.newEntryNotes,
-		IsBillable: &m.newEntryBillable,
 	}
 
 	return func() tea.Msg {
@@ -1790,7 +1753,6 @@ func (m Model) updateTimeEntry() tea.Cmd {
 	request := harvest.UpdateTimeEntryRequest{
 		Hours:      &hours,
 		Notes:      &m.editNotes,
-		IsBillable: &m.editBillable,
 	}
 
 	entryID := m.editingEntry.ID
@@ -1968,23 +1930,10 @@ func (m Model) renderNewEntryForm(width int) string {
 	}
 	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, durationLabel, " ", durationView))
 
-	// Billable field
-	billableLabel := "Billable:"
-	if m.newEntryCurrentField == 4 {
-		billableLabel = styles.HighlightText.Render("▶ Billable:")
-	} else {
-		billableLabel = styles.SecondaryText.Render("  Billable:")
-	}
-	billableStatus := "[ ] Non-billable"
-	if m.newEntryBillable {
-		billableStatus = "[x] Billable"
-	}
-	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, billableLabel, " ", billableStatus))
-
 	fields := lipgloss.JoinVertical(lipgloss.Left, fieldViews...)
 
 	// Instructions
-	instructions := styles.SecondaryText.Render("Tab/Shift+Tab to navigate • Enter on project/task to select • Space/B for billable • Ctrl+S to save • Esc to cancel")
+	instructions := styles.SecondaryText.Render("Tab/Shift+Tab to navigate • Enter on project/task to select • Ctrl+S to save • Esc to cancel")
 
 	// Status message if any
 	statusMsg := ""
@@ -2027,7 +1976,7 @@ func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "tab":
 		// Move to next field
-		m.newEntryCurrentField = (m.newEntryCurrentField + 1) % 5
+		m.newEntryCurrentField = (m.newEntryCurrentField + 1) % 4
 		// Update focus for text inputs
 		if m.newEntryCurrentField == 2 && m.notesInput != nil {
 			m.notesInput.Focus()
@@ -2052,7 +2001,7 @@ func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "shift+tab":
 		// Move to previous field
-		m.newEntryCurrentField = (m.newEntryCurrentField - 1 + 5) % 5
+		m.newEntryCurrentField = (m.newEntryCurrentField - 1 + 4) % 4
 		// Update focus for text inputs
 		if m.newEntryCurrentField == 2 && m.notesInput != nil {
 			m.notesInput.Focus()
@@ -2126,12 +2075,6 @@ func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		return m, m.createTimeEntry()
 
-	case " ", "b":
-		// Toggle billable if on billable field
-		if m.newEntryCurrentField == 4 {
-			m.newEntryBillable = !m.newEntryBillable
-		}
-		return m, nil
 
 	default:
 		// Pass to text inputs if focused
