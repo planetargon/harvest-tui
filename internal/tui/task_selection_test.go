@@ -215,4 +215,116 @@ func TestTaskSelectionTransition(t *testing.T) {
 			t.Errorf("expected status message about no tasks, got '%s'", updatedModel.(Model).statusMessage)
 		}
 	})
+
+	t.Run("given recent combo selected when enter pressed then skips task selection", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+
+		// Set up state with a recent that has all IDs (client, project, task)
+		model.appState.Recents = []state.RecentEntry{
+			{ClientID: 100, ProjectID: 1, TaskID: 5},
+		}
+
+		// Set up matching project with tasks
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   1,
+					Name: "Website Redesign",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Acme Corp",
+					},
+				},
+				Tasks: []harvest.Task{
+					{ID: 5, Name: "Development"},
+					{ID: 6, Name: "Testing"},
+					{ID: 7, Name: "Deployment"},
+				},
+			},
+		}
+
+		// Start in project selection view
+		model.currentView = ViewSelectProject
+		model.updateProjectList()
+
+		// The first item should be the recent
+		model.projectList.Select(0)
+
+		// Simulate pressing enter on the recent
+		msg := tea.KeyMsg{Type: tea.KeyEnter}
+		updatedModel, _ := model.handleProjectSelectKeys(msg)
+
+		// Should skip task selection and go directly to list view
+		// (In future, this would go to notes input view)
+		if updatedModel.(Model).currentView != ViewList {
+			t.Errorf("expected view to be ViewList when recent selected, got %v", updatedModel.(Model).currentView)
+		}
+
+		// Should have selected both project and task from the recent
+		if updatedModel.(Model).selectedProject == nil {
+			t.Error("expected selectedProject to be set from recent")
+		} else if updatedModel.(Model).selectedProject.ID != 1 {
+			t.Errorf("expected selectedProject.ID to be 1, got %d", updatedModel.(Model).selectedProject.ID)
+		}
+
+		if updatedModel.(Model).selectedTask == nil {
+			t.Error("expected selectedTask to be set from recent")
+		} else if updatedModel.(Model).selectedTask.ID != 5 {
+			t.Errorf("expected selectedTask.ID to be 5 (from recent), got %d", updatedModel.(Model).selectedTask.ID)
+		}
+	})
+
+	t.Run("given recent with non-existent task when selected then shows task selection", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+
+		// Set up state with a recent that has a task ID that no longer exists
+		model.appState.Recents = []state.RecentEntry{
+			{ClientID: 100, ProjectID: 1, TaskID: 999}, // Task 999 doesn't exist
+		}
+
+		// Set up matching project with different tasks
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   1,
+					Name: "Website Redesign",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Acme Corp",
+					},
+				},
+				Tasks: []harvest.Task{
+					{ID: 5, Name: "Development"},
+					{ID: 6, Name: "Testing"},
+				},
+			},
+		}
+
+		// Start in project selection view
+		model.currentView = ViewSelectProject
+		model.updateProjectList()
+
+		// The first item should be the recent
+		model.projectList.Select(0)
+
+		// Simulate pressing enter on the recent
+		msg := tea.KeyMsg{Type: tea.KeyEnter}
+		updatedModel, _ := model.handleProjectSelectKeys(msg)
+
+		// Should transition to task selection since the task from recent doesn't exist
+		if updatedModel.(Model).currentView != ViewSelectTask {
+			t.Errorf("expected view to be ViewSelectTask when recent task doesn't exist, got %v", updatedModel.(Model).currentView)
+		}
+
+		// Should have selected the project but not the task
+		if updatedModel.(Model).selectedProject == nil {
+			t.Error("expected selectedProject to be set")
+		} else if updatedModel.(Model).selectedProject.ID != 1 {
+			t.Errorf("expected selectedProject.ID to be 1, got %d", updatedModel.(Model).selectedProject.ID)
+		}
+
+		if updatedModel.(Model).selectedTask != nil {
+			t.Error("expected selectedTask to remain nil when recent task doesn't exist")
+		}
+	})
 }

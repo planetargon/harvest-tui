@@ -681,6 +681,20 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 			if item, ok := selected.(projectItem); ok {
 				m.selectedProject = &item.project
+
+				// Check if this is a recent entry with a task already selected
+				var recentTaskID *int
+				selectedIndex := m.projectList.Index()
+				if selectedIndex < len(m.appState.Recents) {
+					// This is a recent entry (recents appear first in the list)
+					for _, recent := range m.appState.Recents {
+						if recent.ProjectID == item.project.ID && recent.ClientID == item.client.ID {
+							recentTaskID = &recent.TaskID
+							break
+						}
+					}
+				}
+
 				// Find tasks for this project
 				for _, pwt := range m.projectsWithTasks {
 					if pwt.Project.ID == item.project.ID {
@@ -689,7 +703,23 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 							m.statusMessage = "No tasks available for this project"
 							m.selectedProject = nil
 							return m, nil
-						} else if len(pwt.Tasks) == 1 {
+						}
+
+						// If this is a recent with a task, try to use it
+						if recentTaskID != nil {
+							for i := range pwt.Tasks {
+								if pwt.Tasks[i].ID == *recentTaskID {
+									// Found the task from the recent
+									m.selectedTask = &pwt.Tasks[i]
+									m.statusMessage = "Selected: " + item.client.Name + " → " + item.project.Name + " → " + pwt.Tasks[i].Name
+									m.currentView = ViewList
+									return m, nil
+								}
+							}
+							// Task from recent not found, fall through to show task selection
+						}
+
+						if len(pwt.Tasks) == 1 {
 							// Only one task, skip task selection
 							m.selectedTask = &pwt.Tasks[0]
 							// TODO: Move to notes input view when implemented
