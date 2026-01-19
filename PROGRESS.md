@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step
-Step 34: Create HTTP client wrapper in `internal/harvest/client.go` with auth headers
+Step 47: Write tests for create time entry endpoint (mock HTTP)
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -37,6 +37,19 @@ Step 34: Create HTTP client wrapper in `internal/harvest/client.go` with auth he
 - [x] Step 31: Implement sorting functions
 - [x] Step 32: Write tests for daily total calculation
 - [x] Step 33: Implement daily total calculation
+- [x] Step 34: Create HTTP client wrapper in `internal/harvest/client.go` with auth headers
+- [x] Step 35: Write tests for authentication validation endpoint (mock HTTP)
+- [x] Step 36: Implement authentication validation (GET /v2/users/me)
+- [x] Step 37: Write tests for error handling (401 unauthorized)
+- [x] Step 38: Write tests for error handling (429 rate limit, timeout, malformed JSON)
+- [x] Step 39: Write tests for fetch projects endpoint (mock HTTP)
+- [x] Step 40: Implement fetch projects (GET /v2/projects) - include client data
+- [x] Step 41: Write tests for fetch project task assignments endpoint (mock HTTP)
+- [x] Step 42: Implement fetch project task assignments (GET /v2/task_assignments)
+- [x] Step 43: Write tests for fetch time entries endpoint (mock HTTP)
+- [x] Step 44: Implement fetch time entries (GET /v2/time_entries?from=DATE&to=DATE)
+- [x] Step 45: Write tests for aggregating projects with their tasks
+- [x] Step 46: Implement project/task aggregation sorted alphabetically by client then project
 
 ## Blockers
 (none)
@@ -45,7 +58,9 @@ Step 34: Create HTTP client wrapper in `internal/harvest/client.go` with auth he
 Phases 1-5 completed successfully.
 Phase 6 (Domain Types) completed successfully - comprehensive domain model with duration handling.
 Phase 7 (Domain Logic) completed successfully - sorting and calculation functions.
-Starting Phase 8: Harvest API Client - Setup.
+Phase 8 (Harvest API Client - Setup) completed successfully - HTTP client wrapper with auth and comprehensive error handling tests.
+Phase 9 (Harvest API Client - Read Operations) completed successfully - projects, task assignments, time entries, and project/task aggregation.
+Starting Phase 10: Harvest API Client - Write Operations.
 
 ---
 
@@ -99,21 +114,21 @@ Starting Phase 8: Harvest API Client - Setup.
 - [x] Step 33: Implement daily total calculation
 
 ### Phase 8: Harvest API Client - Setup (Steps 34-38)
-- [ ] Step 34: Create HTTP client wrapper in `internal/harvest/client.go` with auth headers
-- [ ] Step 35: Write tests for authentication validation endpoint (mock HTTP)
-- [ ] Step 36: Implement authentication validation (GET /v2/users/me)
-- [ ] Step 37: Write tests for error handling (401 unauthorized)
-- [ ] Step 38: Write tests for error handling (429 rate limit, timeout, malformed JSON)
+- [x] Step 34: Create HTTP client wrapper in `internal/harvest/client.go` with auth headers
+- [x] Step 35: Write tests for authentication validation endpoint (mock HTTP)
+- [x] Step 36: Implement authentication validation (GET /v2/users/me)
+- [x] Step 37: Write tests for error handling (401 unauthorized)
+- [x] Step 38: Write tests for error handling (429 rate limit, timeout, malformed JSON)
 
 ### Phase 9: Harvest API Client - Read Operations (Steps 39-46)
-- [ ] Step 39: Write tests for fetch projects endpoint (mock HTTP)
-- [ ] Step 40: Implement fetch projects (GET /v2/projects) - include client data
-- [ ] Step 41: Write tests for fetch project task assignments endpoint (mock HTTP)
-- [ ] Step 42: Implement fetch project task assignments (GET /v2/task_assignments)
-- [ ] Step 43: Write tests for fetch time entries endpoint (mock HTTP)
-- [ ] Step 44: Implement fetch time entries (GET /v2/time_entries?from=DATE&to=DATE)
-- [ ] Step 45: Write tests for aggregating projects with their tasks
-- [ ] Step 46: Implement project/task aggregation sorted alphabetically by client then project
+- [x] Step 39: Write tests for fetch projects endpoint (mock HTTP)
+- [x] Step 40: Implement fetch projects (GET /v2/projects) - include client data
+- [x] Step 41: Write tests for fetch project task assignments endpoint (mock HTTP)
+- [x] Step 42: Implement fetch project task assignments (GET /v2/task_assignments)
+- [x] Step 43: Write tests for fetch time entries endpoint (mock HTTP)
+- [x] Step 44: Implement fetch time entries (GET /v2/time_entries?from=DATE&to=DATE)
+- [x] Step 45: Write tests for aggregating projects with their tasks
+- [x] Step 46: Implement project/task aggregation sorted alphabetically by client then project
 
 ### Phase 10: Harvest API Client - Write Operations (Steps 47-54)
 - [ ] Step 47: Write tests for create time entry endpoint (mock HTTP)
