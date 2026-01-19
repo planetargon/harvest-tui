@@ -507,6 +507,16 @@ func (m *Model) updateProjectList() {
 	m.projectList.Title = "Select Project"
 }
 
+// updateTaskList updates the task list with tasks from the selected project.
+func (m *Model) updateTaskList(tasks []harvest.Task) {
+	var items []list.Item
+	for _, task := range tasks {
+		items = append(items, taskItem{task: task})
+	}
+	m.taskList.SetItems(items)
+	m.taskList.Title = "Select Task"
+}
+
 func (m Model) renderProjectSelectView() string {
 	styles := DefaultStyles()
 
@@ -535,7 +545,41 @@ func (m Model) renderProjectSelectView() string {
 }
 
 func (m Model) renderTaskSelectView() string {
-	return "Task select view - TODO: implement"
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("New Time Entry"),
+			"  ",
+			styles.Subtitle.Render("Step 2: Choose Task"),
+		),
+	)
+
+	// Show selected project
+	projectInfo := ""
+	if m.selectedProject != nil {
+		projectInfo = styles.SecondaryText.Render(
+			fmt.Sprintf("Project: %s → %s",
+				m.selectedProject.Client.Name,
+				m.selectedProject.Name))
+	}
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Press Enter to select • Esc to go back • / to filter")
+
+	// Render the list
+	listView := m.taskList.View()
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		projectInfo,
+		"",
+		instructions,
+		"",
+		listView,
+	)
 }
 
 func (m Model) renderEditView() string {
@@ -728,7 +772,7 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 						} else {
 							// Multiple tasks, show task selection
 							m.currentView = ViewSelectTask
-							// TODO: Update task list
+							m.updateTaskList(pwt.Tasks)
 						}
 						break
 					}
@@ -744,7 +788,37 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m, nil
+	var cmd tea.Cmd
+
+	switch msg.String() {
+	case "escape":
+		// Go back to project selection
+		m.currentView = ViewSelectProject
+		m.selectedProject = nil
+		m.selectedTask = nil
+		return m, nil
+	case "enter":
+		// Get the selected task
+		selected := m.taskList.SelectedItem()
+		if selected != nil {
+			if item, ok := selected.(taskItem); ok {
+				m.selectedTask = &item.task
+				// TODO: Move to notes input view when implemented
+				if m.selectedProject != nil {
+					m.statusMessage = fmt.Sprintf("Selected: %s → %s → %s",
+						m.selectedProject.Client.Name,
+						m.selectedProject.Name,
+						item.task.Name)
+				}
+				m.currentView = ViewList
+			}
+		}
+		return m, nil
+	}
+
+	// Handle list navigation
+	m.taskList, cmd = m.taskList.Update(msg)
+	return m, cmd
 }
 
 func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
