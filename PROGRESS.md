@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step
-Step 19: Define state types in `internal/state/state.go`
+Step 24: Define Client, Project, Task, TimeEntry types in `internal/domain/types.go`
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -22,14 +22,19 @@ Step 19: Define state types in `internal/state/state.go`
 - [x] Step 16: Implement config loading from `~/.config/harvest-tui/config.toml`
 - [x] Step 17: Integrate config loading into main.go with appropriate error messages
 - [x] Step 18: Verify app shows helpful error when config is missing
+- [x] Step 19: Define state types in `internal/state/state.go`
+- [x] Step 20: Write tests for state loading (existing file, missing file)
+- [x] Step 21: Write tests for state saving
+- [x] Step 22: Implement state loading/saving for recents
+- [x] Step 23: Write tests for recents management (add, bump to top, cap at 3, dedup) and implement
 
 ## Blockers
 (none)
 
 ## Notes
-Phase 1 (Project Setup), Phase 2 (Documentation Setup), and Phase 3 (Minimal TUI) completed successfully.
-Phase 4 (Configuration) completed successfully - config loading with comprehensive tests and error handling.
-Starting Phase 5: State Management.
+Phase 1 (Project Setup), Phase 2 (Documentation Setup), Phase 3 (Minimal TUI), and Phase 4 (Configuration) completed successfully.
+Phase 5 (State Management) completed successfully - comprehensive state persistence with recents management.
+Starting Phase 6: Domain Types.
 
 ---
 
@@ -62,11 +67,11 @@ Starting Phase 5: State Management.
 - [x] Step 18: Verify app shows helpful error when config is missing
 
 ### Phase 5: State Management (Steps 19-23)
-- [ ] Step 19: Define state types in `internal/state/state.go`
-- [ ] Step 20: Write tests for state loading (existing file, missing file)
-- [ ] Step 21: Write tests for state saving
-- [ ] Step 22: Implement state loading/saving for recents
-- [ ] Step 23: Write tests for recents management (add, bump to top, cap at 3, dedup) and implement
+- [x] Step 19: Define state types in `internal/state/state.go`
+- [x] Step 20: Write tests for state loading (existing file, missing file)
+- [x] Step 21: Write tests for state saving
+- [x] Step 22: Implement state loading/saving for recents
+- [x] Step 23: Write tests for recents management (add, bump to top, cap at 3, dedup) and implement
 
 ### Phase 6: Domain Types (Steps 24-28)
 - [ ] Step 24: Define Client, Project, Task, TimeEntry types in `internal/domain/types.go`
