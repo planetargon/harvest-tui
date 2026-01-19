@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step
-Step 47: Write tests for create time entry endpoint (mock HTTP)
+Step 55: Define view states enum (list, selectProject, selectTask, editEntry, confirmDelete, help)
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -50,6 +50,14 @@ Step 47: Write tests for create time entry endpoint (mock HTTP)
 - [x] Step 44: Implement fetch time entries (GET /v2/time_entries?from=DATE&to=DATE)
 - [x] Step 45: Write tests for aggregating projects with their tasks
 - [x] Step 46: Implement project/task aggregation sorted alphabetically by client then project
+- [x] Step 47: Write tests for create time entry endpoint (mock HTTP)
+- [x] Step 48: Implement create time entry (POST /v2/time_entries)
+- [x] Step 49: Write tests for update time entry endpoint (mock HTTP)
+- [x] Step 50: Implement update time entry (PATCH /v2/time_entries/{id})
+- [x] Step 51: Write tests for delete time entry endpoint (mock HTTP)
+- [x] Step 52: Implement delete time entry (DELETE /v2/time_entries/{id})
+- [x] Step 53: Write tests for start/stop timer endpoints (mock HTTP)
+- [x] Step 54: Implement restart timer (PATCH /v2/time_entries/{id}/restart) and stop timer (PATCH /v2/time_entries/{id}/stop)
 
 ## Blockers
 (none)
@@ -60,7 +68,8 @@ Phase 6 (Domain Types) completed successfully - comprehensive domain model with 
 Phase 7 (Domain Logic) completed successfully - sorting and calculation functions.
 Phase 8 (Harvest API Client - Setup) completed successfully - HTTP client wrapper with auth and comprehensive error handling tests.
 Phase 9 (Harvest API Client - Read Operations) completed successfully - projects, task assignments, time entries, and project/task aggregation.
-Starting Phase 10: Harvest API Client - Write Operations.
+Phase 10 (Harvest API Client - Write Operations) completed successfully - create, update, delete time entries, and start/stop timer functionality with comprehensive tests.
+Starting Phase 11: TUI Foundation.
 
 ---
 

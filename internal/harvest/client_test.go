@@ -2,6 +2,7 @@ package harvest
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -724,6 +725,828 @@ func TestFetchTimeEntries(t *testing.T) {
 
 		if requestCount != 2 {
 			t.Errorf("expected 2 requests for pagination, got %d", requestCount)
+		}
+	})
+}
+
+func TestCreateTimeEntry(t *testing.T) {
+	t.Run("given valid time entry data when CreateTimeEntry called then creates entry and returns it", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/v2/time_entries" {
+				t.Errorf("expected path /v2/time_entries, got %s", r.URL.Path)
+			}
+			if r.Method != http.MethodPost {
+				t.Errorf("expected method POST, got %s", r.Method)
+			}
+
+			// Verify Content-Type header
+			if r.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+			}
+
+			// Verify request body
+			var reqData map[string]interface{}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+
+			expectedFields := map[string]interface{}{
+				"project_id": float64(100),
+				"task_id":    float64(200),
+				"spent_date": "2025-01-15",
+				"hours":      1.5,
+				"notes":      "Code review session",
+			}
+
+			for field, expectedValue := range expectedFields {
+				if reqData[field] != expectedValue {
+					t.Errorf("expected %s=%v, got %v", field, expectedValue, reqData[field])
+				}
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":         1001,
+				"spent_date": "2025-01-15",
+				"hours":      1.5,
+				"notes":      "Code review session",
+				"is_running": false,
+				"is_locked":  false,
+				"billable":   true,
+				"client": map[string]interface{}{
+					"id":   50,
+					"name": "Test Client",
+				},
+				"project": map[string]interface{}{
+					"id":   100,
+					"name": "Test Project",
+				},
+				"task": map[string]interface{}{
+					"id":   200,
+					"name": "Development",
+				},
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry := CreateTimeEntryRequest{
+			ProjectID: 100,
+			TaskID:    200,
+			SpentDate: "2025-01-15",
+			Hours:     1.5,
+			Notes:     "Code review session",
+		}
+
+		created, err := client.CreateTimeEntry(entry)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if created.ID != 1001 {
+			t.Errorf("expected ID 1001, got %d", created.ID)
+		}
+		if created.SpentDate != "2025-01-15" {
+			t.Errorf("expected spent_date 2025-01-15, got %s", created.SpentDate)
+		}
+		if created.Hours != 1.5 {
+			t.Errorf("expected hours 1.5, got %f", created.Hours)
+		}
+		if created.Notes != "Code review session" {
+			t.Errorf("expected notes 'Code review session', got '%s'", created.Notes)
+		}
+		if created.Project.ID != 100 {
+			t.Errorf("expected project ID 100, got %d", created.Project.ID)
+		}
+		if created.Task.ID != 200 {
+			t.Errorf("expected task ID 200, got %d", created.Task.ID)
+		}
+	})
+
+	t.Run("given time entry with billable field when CreateTimeEntry called then creates entry with correct billable flag", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var reqData map[string]interface{}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+
+			if reqData["billable"] != false {
+				t.Errorf("expected billable=false, got %v", reqData["billable"])
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":         1002,
+				"spent_date": "2025-01-15",
+				"hours":      2.0,
+				"notes":      "Non-billable work",
+				"billable":   false,
+				"client":     map[string]interface{}{"id": 50, "name": "Test Client"},
+				"project":    map[string]interface{}{"id": 100, "name": "Test Project"},
+				"task":       map[string]interface{}{"id": 200, "name": "Development"},
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry := CreateTimeEntryRequest{
+			ProjectID:  100,
+			TaskID:     200,
+			SpentDate:  "2025-01-15",
+			Hours:      2.0,
+			Notes:      "Non-billable work",
+			IsBillable: &[]bool{false}[0],
+		}
+
+		created, err := client.CreateTimeEntry(entry)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if created.IsBillable != false {
+			t.Errorf("expected billable false, got %t", created.IsBillable)
+		}
+	})
+
+	t.Run("given invalid request when CreateTimeEntry called then returns error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "The project_id field is required.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry := CreateTimeEntryRequest{
+			TaskID:    200,
+			SpentDate: "2025-01-15",
+			Hours:     1.0,
+		}
+
+		created, err := client.CreateTimeEntry(entry)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if created != nil {
+			t.Errorf("expected nil time entry, got %v", created)
+		}
+
+		if !strings.Contains(err.Error(), "400") {
+			t.Errorf("expected 400 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given unauthorized request when CreateTimeEntry called then returns auth error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "invalid_token",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "invalid-token")
+		client.SetBaseURL(server.URL)
+
+		entry := CreateTimeEntryRequest{
+			ProjectID: 100,
+			TaskID:    200,
+			SpentDate: "2025-01-15",
+			Hours:     1.0,
+		}
+
+		created, err := client.CreateTimeEntry(entry)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if created != nil {
+			t.Errorf("expected nil time entry, got %v", created)
+		}
+
+		if !strings.Contains(err.Error(), "401") {
+			t.Errorf("expected 401 status in error, got: %s", err.Error())
+		}
+	})
+}
+
+func TestUpdateTimeEntry(t *testing.T) {
+	t.Run("given valid update data when UpdateTimeEntry called then updates entry and returns it", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			expectedPath := fmt.Sprintf("/v2/time_entries/%d", entryID)
+			if r.URL.Path != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, r.URL.Path)
+			}
+			if r.Method != http.MethodPatch {
+				t.Errorf("expected method PATCH, got %s", r.Method)
+			}
+
+			// Verify Content-Type header
+			if r.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+			}
+
+			// Verify request body
+			var reqData map[string]interface{}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+
+			expectedFields := map[string]interface{}{
+				"hours": 2.5,
+				"notes": "Updated notes",
+			}
+
+			for field, expectedValue := range expectedFields {
+				if reqData[field] != expectedValue {
+					t.Errorf("expected %s=%v, got %v", field, expectedValue, reqData[field])
+				}
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":         1001,
+				"spent_date": "2025-01-15",
+				"hours":      2.5,
+				"notes":      "Updated notes",
+				"is_running": false,
+				"is_locked":  false,
+				"billable":   true,
+				"client": map[string]interface{}{
+					"id":   50,
+					"name": "Test Client",
+				},
+				"project": map[string]interface{}{
+					"id":   100,
+					"name": "Test Project",
+				},
+				"task": map[string]interface{}{
+					"id":   200,
+					"name": "Development",
+				},
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		update := UpdateTimeEntryRequest{
+			Hours: &[]float64{2.5}[0],
+			Notes: &[]string{"Updated notes"}[0],
+		}
+
+		updated, err := client.UpdateTimeEntry(entryID, update)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if updated.ID != 1001 {
+			t.Errorf("expected ID 1001, got %d", updated.ID)
+		}
+		if updated.Hours != 2.5 {
+			t.Errorf("expected hours 2.5, got %f", updated.Hours)
+		}
+		if updated.Notes != "Updated notes" {
+			t.Errorf("expected notes 'Updated notes', got '%s'", updated.Notes)
+		}
+	})
+
+	t.Run("given billable field when UpdateTimeEntry called then updates billable flag", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var reqData map[string]interface{}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+
+			if reqData["billable"] != true {
+				t.Errorf("expected billable=true, got %v", reqData["billable"])
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":       1001,
+				"billable": true,
+				"client":   map[string]interface{}{"id": 50, "name": "Test Client"},
+				"project":  map[string]interface{}{"id": 100, "name": "Test Project"},
+				"task":     map[string]interface{}{"id": 200, "name": "Development"},
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		update := UpdateTimeEntryRequest{
+			IsBillable: &[]bool{true}[0],
+		}
+
+		updated, err := client.UpdateTimeEntry(entryID, update)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if updated.IsBillable != true {
+			t.Errorf("expected billable true, got %t", updated.IsBillable)
+		}
+	})
+
+	t.Run("given locked time entry when UpdateTimeEntry called then returns error", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry is locked and cannot be modified.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		update := UpdateTimeEntryRequest{
+			Hours: &[]float64{2.0}[0],
+		}
+
+		updated, err := client.UpdateTimeEntry(entryID, update)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if updated != nil {
+			t.Errorf("expected nil time entry, got %v", updated)
+		}
+
+		if !strings.Contains(err.Error(), "400") {
+			t.Errorf("expected 400 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given nonexistent entry when UpdateTimeEntry called then returns not found error", func(t *testing.T) {
+		entryID := 999999
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry not found.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		update := UpdateTimeEntryRequest{
+			Hours: &[]float64{2.0}[0],
+		}
+
+		updated, err := client.UpdateTimeEntry(entryID, update)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if updated != nil {
+			t.Errorf("expected nil time entry, got %v", updated)
+		}
+
+		if !strings.Contains(err.Error(), "404") {
+			t.Errorf("expected 404 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given unauthorized request when UpdateTimeEntry called then returns auth error", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "invalid_token",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "invalid-token")
+		client.SetBaseURL(server.URL)
+
+		update := UpdateTimeEntryRequest{
+			Hours: &[]float64{2.0}[0],
+		}
+
+		updated, err := client.UpdateTimeEntry(entryID, update)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if updated != nil {
+			t.Errorf("expected nil time entry, got %v", updated)
+		}
+
+		if !strings.Contains(err.Error(), "401") {
+			t.Errorf("expected 401 status in error, got: %s", err.Error())
+		}
+	})
+}
+
+func TestDeleteTimeEntry(t *testing.T) {
+	t.Run("given existing time entry when DeleteTimeEntry called then deletes entry successfully", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			expectedPath := fmt.Sprintf("/v2/time_entries/%d", entryID)
+			if r.URL.Path != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, r.URL.Path)
+			}
+			if r.Method != http.MethodDelete {
+				t.Errorf("expected method DELETE, got %s", r.Method)
+			}
+
+			// Verify auth headers are present
+			if r.Header.Get("Harvest-Account-Id") != "12345" {
+				t.Errorf("expected Harvest-Account-Id header 12345, got %s", r.Header.Get("Harvest-Account-Id"))
+			}
+			if r.Header.Get("Authorization") != "Bearer test-token" {
+				t.Errorf("expected Authorization header Bearer test-token, got %s", r.Header.Get("Authorization"))
+			}
+
+			// DELETE typically returns 200 OK with empty response body
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		err := client.DeleteTimeEntry(entryID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("given locked time entry when DeleteTimeEntry called then returns error", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry is locked and cannot be deleted.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		err := client.DeleteTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "400") {
+			t.Errorf("expected 400 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given running time entry when DeleteTimeEntry called then returns error", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Cannot delete a running time entry.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		err := client.DeleteTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "400") {
+			t.Errorf("expected 400 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given nonexistent entry when DeleteTimeEntry called then returns not found error", func(t *testing.T) {
+		entryID := 999999
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry not found.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		err := client.DeleteTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "404") {
+			t.Errorf("expected 404 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given unauthorized request when DeleteTimeEntry called then returns auth error", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "invalid_token",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "invalid-token")
+		client.SetBaseURL(server.URL)
+
+		err := client.DeleteTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "401") {
+			t.Errorf("expected 401 status in error, got: %s", err.Error())
+		}
+	})
+}
+
+func TestRestartTimeEntry(t *testing.T) {
+	t.Run("given stopped time entry when RestartTimeEntry called then starts timer and returns updated entry", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			expectedPath := fmt.Sprintf("/v2/time_entries/%d/restart", entryID)
+			if r.URL.Path != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, r.URL.Path)
+			}
+			if r.Method != http.MethodPatch {
+				t.Errorf("expected method PATCH, got %s", r.Method)
+			}
+
+			// Verify auth headers are present
+			if r.Header.Get("Harvest-Account-Id") != "12345" {
+				t.Errorf("expected Harvest-Account-Id header 12345, got %s", r.Header.Get("Harvest-Account-Id"))
+			}
+			if r.Header.Get("Authorization") != "Bearer test-token" {
+				t.Errorf("expected Authorization header Bearer test-token, got %s", r.Header.Get("Authorization"))
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":         1001,
+				"spent_date": "2025-01-15",
+				"hours":      2.5,
+				"notes":      "Development work",
+				"is_running": true,
+				"is_locked":  false,
+				"billable":   true,
+				"client": map[string]interface{}{
+					"id":   50,
+					"name": "Test Client",
+				},
+				"project": map[string]interface{}{
+					"id":   100,
+					"name": "Test Project",
+				},
+				"task": map[string]interface{}{
+					"id":   200,
+					"name": "Development",
+				},
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry, err := client.RestartTimeEntry(entryID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if entry.ID != 1001 {
+			t.Errorf("expected ID 1001, got %d", entry.ID)
+		}
+		if entry.IsRunning != true {
+			t.Errorf("expected IsRunning true, got %t", entry.IsRunning)
+		}
+	})
+
+	t.Run("given locked time entry when RestartTimeEntry called then returns error", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry is locked and cannot be restarted.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry, err := client.RestartTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if entry != nil {
+			t.Errorf("expected nil time entry, got %v", entry)
+		}
+
+		if !strings.Contains(err.Error(), "400") {
+			t.Errorf("expected 400 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given nonexistent entry when RestartTimeEntry called then returns not found error", func(t *testing.T) {
+		entryID := 999999
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry not found.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry, err := client.RestartTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if entry != nil {
+			t.Errorf("expected nil time entry, got %v", entry)
+		}
+
+		if !strings.Contains(err.Error(), "404") {
+			t.Errorf("expected 404 status in error, got: %s", err.Error())
+		}
+	})
+}
+
+func TestStopTimeEntry(t *testing.T) {
+	t.Run("given running time entry when StopTimeEntry called then stops timer and returns updated entry", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			expectedPath := fmt.Sprintf("/v2/time_entries/%d/stop", entryID)
+			if r.URL.Path != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, r.URL.Path)
+			}
+			if r.Method != http.MethodPatch {
+				t.Errorf("expected method PATCH, got %s", r.Method)
+			}
+
+			// Verify auth headers are present
+			if r.Header.Get("Harvest-Account-Id") != "12345" {
+				t.Errorf("expected Harvest-Account-Id header 12345, got %s", r.Header.Get("Harvest-Account-Id"))
+			}
+			if r.Header.Get("Authorization") != "Bearer test-token" {
+				t.Errorf("expected Authorization header Bearer test-token, got %s", r.Header.Get("Authorization"))
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":         1001,
+				"spent_date": "2025-01-15",
+				"hours":      3.25,
+				"notes":      "Development work",
+				"is_running": false,
+				"is_locked":  false,
+				"billable":   true,
+				"client": map[string]interface{}{
+					"id":   50,
+					"name": "Test Client",
+				},
+				"project": map[string]interface{}{
+					"id":   100,
+					"name": "Test Project",
+				},
+				"task": map[string]interface{}{
+					"id":   200,
+					"name": "Development",
+				},
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry, err := client.StopTimeEntry(entryID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if entry.ID != 1001 {
+			t.Errorf("expected ID 1001, got %d", entry.ID)
+		}
+		if entry.IsRunning != false {
+			t.Errorf("expected IsRunning false, got %t", entry.IsRunning)
+		}
+		if entry.Hours != 3.25 {
+			t.Errorf("expected hours 3.25, got %f", entry.Hours)
+		}
+	})
+
+	t.Run("given already stopped time entry when StopTimeEntry called then returns error", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry is not running.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry, err := client.StopTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if entry != nil {
+			t.Errorf("expected nil time entry, got %v", entry)
+		}
+
+		if !strings.Contains(err.Error(), "400") {
+			t.Errorf("expected 400 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given locked time entry when StopTimeEntry called then returns error", func(t *testing.T) {
+		entryID := 1001
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry is locked and cannot be stopped.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry, err := client.StopTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if entry != nil {
+			t.Errorf("expected nil time entry, got %v", entry)
+		}
+
+		if !strings.Contains(err.Error(), "400") {
+			t.Errorf("expected 400 status in error, got: %s", err.Error())
+		}
+	})
+
+	t.Run("given nonexistent entry when StopTimeEntry called then returns not found error", func(t *testing.T) {
+		entryID := 999999
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Time entry not found.",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient("12345", "test-token")
+		client.SetBaseURL(server.URL)
+
+		entry, err := client.StopTimeEntry(entryID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if entry != nil {
+			t.Errorf("expected nil time entry, got %v", entry)
+		}
+
+		if !strings.Contains(err.Error(), "404") {
+			t.Errorf("expected 404 status in error, got: %s", err.Error())
 		}
 	})
 }

@@ -131,6 +131,26 @@ type ProjectWithTasks struct {
 	Tasks   []Task
 }
 
+// CreateTimeEntryRequest represents the request payload for creating a time entry.
+type CreateTimeEntryRequest struct {
+	ProjectID  int     `json:"project_id"`
+	TaskID     int     `json:"task_id"`
+	SpentDate  string  `json:"spent_date"`
+	Hours      float64 `json:"hours"`
+	Notes      string  `json:"notes"`
+	IsBillable *bool   `json:"billable,omitempty"`
+}
+
+// UpdateTimeEntryRequest represents the request payload for updating a time entry.
+type UpdateTimeEntryRequest struct {
+	ProjectID  *int     `json:"project_id,omitempty"`
+	TaskID     *int     `json:"task_id,omitempty"`
+	SpentDate  *string  `json:"spent_date,omitempty"`
+	Hours      *float64 `json:"hours,omitempty"`
+	Notes      *string  `json:"notes,omitempty"`
+	IsBillable *bool    `json:"billable,omitempty"`
+}
+
 // AggregateProjectsWithTasks combines projects and task assignments into a sorted list.
 // Projects without tasks are excluded. Results are sorted by client name, then project name.
 func AggregateProjectsWithTasks(projects []Project, taskAssignments []TaskAssignment) []ProjectWithTasks {
@@ -384,4 +404,108 @@ func (c *Client) FetchTimeEntries(date string) ([]TimeEntry, error) {
 	}
 
 	return allTimeEntries, nil
+}
+
+// CreateTimeEntry creates a new time entry in Harvest.
+// API Reference: https://help.getharvest.com/api-v2/timesheets-api/timesheets/time-entries/
+func (c *Client) CreateTimeEntry(request CreateTimeEntryRequest) (*TimeEntry, error) {
+	resp, err := c.Post("/v2/time_entries", request)
+	if err != nil {
+		return nil, fmt.Errorf("network request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("failed to create time entry with status %d", resp.StatusCode)
+	}
+
+	var timeEntry TimeEntry
+	if err := json.NewDecoder(resp.Body).Decode(&timeEntry); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &timeEntry, nil
+}
+
+// UpdateTimeEntry updates an existing time entry in Harvest.
+// API Reference: https://help.getharvest.com/api-v2/timesheets-api/timesheets/time-entries/
+func (c *Client) UpdateTimeEntry(id int, request UpdateTimeEntryRequest) (*TimeEntry, error) {
+	path := fmt.Sprintf("/v2/time_entries/%d", id)
+	resp, err := c.Patch(path, request)
+	if err != nil {
+		return nil, fmt.Errorf("network request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to update time entry with status %d", resp.StatusCode)
+	}
+
+	var timeEntry TimeEntry
+	if err := json.NewDecoder(resp.Body).Decode(&timeEntry); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &timeEntry, nil
+}
+
+// DeleteTimeEntry deletes an existing time entry in Harvest.
+// API Reference: https://help.getharvest.com/api-v2/timesheets-api/timesheets/time-entries/
+func (c *Client) DeleteTimeEntry(id int) error {
+	path := fmt.Sprintf("/v2/time_entries/%d", id)
+	resp, err := c.Delete(path)
+	if err != nil {
+		return fmt.Errorf("network request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to delete time entry with status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// RestartTimeEntry restarts (starts the timer for) an existing time entry in Harvest.
+// API Reference: https://help.getharvest.com/api-v2/timesheets-api/timesheets/time-entries/
+func (c *Client) RestartTimeEntry(id int) (*TimeEntry, error) {
+	path := fmt.Sprintf("/v2/time_entries/%d/restart", id)
+	resp, err := c.Patch(path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("network request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to restart time entry with status %d", resp.StatusCode)
+	}
+
+	var timeEntry TimeEntry
+	if err := json.NewDecoder(resp.Body).Decode(&timeEntry); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &timeEntry, nil
+}
+
+// StopTimeEntry stops the timer for an existing time entry in Harvest.
+// API Reference: https://help.getharvest.com/api-v2/timesheets-api/timesheets/time-entries/
+func (c *Client) StopTimeEntry(id int) (*TimeEntry, error) {
+	path := fmt.Sprintf("/v2/time_entries/%d/stop", id)
+	resp, err := c.Patch(path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("network request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to stop time entry with status %d", resp.StatusCode)
+	}
+
+	var timeEntry TimeEntry
+	if err := json.NewDecoder(resp.Body).Decode(&timeEntry); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &timeEntry, nil
 }
