@@ -968,7 +968,7 @@ func TestGlobalKeyHandling(t *testing.T) {
 		model := NewModel(cfg, client, appState)
 		model.currentView = ViewList
 
-		msg := tea.KeyMsg{Type: tea.KeyEsc}
+		msg := tea.KeyMsg{Type: tea.KeyEscape}
 		_, cmd := model.Update(msg)
 
 		// Should return quit command
@@ -983,7 +983,7 @@ func TestGlobalKeyHandling(t *testing.T) {
 		model.selectedProject = &harvest.Project{ID: 1}
 		model.newEntryNotes = "test"
 
-		msg := tea.KeyMsg{Type: tea.KeyEsc}
+		msg := tea.KeyMsg{Type: tea.KeyEscape}
 		newModel, _ := model.Update(msg)
 		m := newModel.(Model)
 
@@ -1497,6 +1497,43 @@ func TestProjectListSorting(t *testing.T) {
 			if actualTitle != expectedTitle {
 				t.Errorf("item %d: expected title '%s', got '%s'", i, expectedTitle, actualTitle)
 			}
+		}
+	})
+}
+
+func TestTruncateString(t *testing.T) {
+	t.Run("given short string when truncated then returns original", func(t *testing.T) {
+		result := truncateString("Hello", 10)
+		if result != "Hello" {
+			t.Errorf("expected 'Hello', got '%s'", result)
+		}
+	})
+
+	t.Run("given long string when truncated then adds ellipsis", func(t *testing.T) {
+		result := truncateString("This is a very long string", 10)
+		if result != "This is..." {
+			t.Errorf("expected 'This is...', got '%s'", result)
+		}
+	})
+
+	t.Run("given string exactly at limit when truncated then returns original", func(t *testing.T) {
+		result := truncateString("Exactly10!", 10)
+		if result != "Exactly10!" {
+			t.Errorf("expected 'Exactly10!', got '%s'", result)
+		}
+	})
+
+	t.Run("given empty string when truncated then returns empty", func(t *testing.T) {
+		result := truncateString("", 10)
+		if result != "" {
+			t.Errorf("expected empty string, got '%s'", result)
+		}
+	})
+
+	t.Run("given max length of 3 or less when truncated then returns original", func(t *testing.T) {
+		result := truncateString("Long string", 3)
+		if result != "Long string" {
+			t.Errorf("expected 'Long string', got '%s'", result)
 		}
 	})
 }

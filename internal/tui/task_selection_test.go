@@ -91,9 +91,9 @@ func TestTaskSelectionTransition(t *testing.T) {
 		msg := tea.KeyMsg{Type: tea.KeyEnter}
 		updatedModel, _ := model.handleProjectSelectKeys(msg)
 
-		// Should return to list view (skipping task selection)
-		if updatedModel.(Model).currentView != ViewList {
-			t.Errorf("expected view to be ViewList, got %v", updatedModel.(Model).currentView)
+		// Should go to notes input (with single task auto-selected)
+		if updatedModel.(Model).currentView != ViewNotesInput {
+			t.Errorf("expected view to be ViewNotesInput, got %v", updatedModel.(Model).currentView)
 		}
 
 		// Should have selected both project and task
@@ -107,11 +107,6 @@ func TestTaskSelectionTransition(t *testing.T) {
 			t.Error("expected selectedTask to be set")
 		} else if updatedModel.(Model).selectedTask.ID != 10 {
 			t.Errorf("expected selectedTask.ID to be 10, got %d", updatedModel.(Model).selectedTask.ID)
-		}
-
-		// Should show status message
-		if updatedModel.(Model).statusMessage == "" {
-			t.Error("expected statusMessage to be set")
 		}
 	})
 
@@ -254,10 +249,9 @@ func TestTaskSelectionTransition(t *testing.T) {
 		msg := tea.KeyMsg{Type: tea.KeyEnter}
 		updatedModel, _ := model.handleProjectSelectKeys(msg)
 
-		// Should skip task selection and go directly to list view
-		// (In future, this would go to notes input view)
-		if updatedModel.(Model).currentView != ViewList {
-			t.Errorf("expected view to be ViewList when recent selected, got %v", updatedModel.(Model).currentView)
+		// Should skip task selection and go to notes input
+		if updatedModel.(Model).currentView != ViewNotesInput {
+			t.Errorf("expected view to be ViewNotesInput when recent selected, got %v", updatedModel.(Model).currentView)
 		}
 
 		// Should have selected both project and task from the recent

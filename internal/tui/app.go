@@ -7,9 +7,11 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/planetargon/argon-harvest-tui/internal/config"
+	"github.com/planetargon/argon-harvest-tui/internal/domain"
 	"github.com/planetargon/argon-harvest-tui/internal/harvest"
 	"github.com/planetargon/argon-harvest-tui/internal/state"
 )
@@ -30,6 +32,12 @@ const (
 	ViewConfirmDelete
 	// ViewHelp is the help overlay showing all keybindings.
 	ViewHelp
+	// ViewNotesInput is the view for entering notes for a new time entry.
+	ViewNotesInput
+	// ViewDurationInput is the view for entering duration for a new time entry.
+	ViewDurationInput
+	// ViewBillableToggle is the view for toggling billable status for a new time entry.
+	ViewBillableToggle
 )
 
 // Model represents the state of the TUI application.
@@ -70,6 +78,12 @@ type Model struct {
 	// List components for selection views
 	projectList list.Model
 	taskList    list.Model
+
+	// Text input components
+	notesInput        *textinput.Model
+	durationInput     *textinput.Model
+	editNotesInput    *textinput.Model
+	editDurationInput *textinput.Model
 
 	// Window dimensions
 	width  int
@@ -174,6 +188,62 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case timeEntryCreatedMsg:
+		if msg.err != nil {
+			m.statusMessage = "Failed to create entry: " + msg.err.Error()
+		} else {
+			// Add the new entry to our local list
+			m.timeEntries = append([]harvest.TimeEntry{*msg.entry}, m.timeEntries...)
+			m.statusMessage = "Time entry created successfully"
+			// Clear new entry state and return to main list
+			m.clearEditState()
+			m.currentView = ViewList
+		}
+		return m, nil
+
+	case timeEntryUpdatedMsg:
+		if msg.err != nil {
+			m.statusMessage = "Failed to update entry: " + msg.err.Error()
+		} else {
+			// Update the entry in our local list
+			for i, entry := range m.timeEntries {
+				if entry.ID == msg.entry.ID {
+					m.timeEntries[i] = *msg.entry
+					break
+				}
+			}
+			m.statusMessage = "Time entry updated successfully"
+			// Clear edit state and return to main list
+			m.clearEditState()
+			m.currentView = ViewList
+		}
+		return m, nil
+
+	case timeEntryDeletedMsg:
+		if msg.err != nil {
+			m.statusMessage = "Failed to delete entry: " + msg.err.Error()
+		} else {
+			// Remove the entry from our local list
+			newEntries := []harvest.TimeEntry{}
+			for _, entry := range m.timeEntries {
+				if entry.ID != msg.entryID {
+					newEntries = append(newEntries, entry)
+				}
+			}
+			m.timeEntries = newEntries
+
+			// Adjust selected index if necessary
+			if m.selectedEntryIndex >= len(m.timeEntries) && m.selectedEntryIndex > 0 {
+				m.selectedEntryIndex--
+			}
+
+			m.statusMessage = "Time entry deleted successfully"
+			// Clear edit state and return to main list
+			m.clearEditState()
+			m.currentView = ViewList
+		}
+		return m, nil
+
 	default:
 		return m, nil
 	}
@@ -194,6 +264,12 @@ func (m Model) View() string {
 		return m.renderConfirmDeleteView()
 	case ViewHelp:
 		return m.renderHelpView()
+	case ViewNotesInput:
+		return m.renderNotesInputView()
+	case ViewDurationInput:
+		return m.renderDurationInputView()
+	case ViewBillableToggle:
+		return m.renderBillableToggleView()
 	default:
 		return "Unknown view"
 	}
@@ -229,6 +305,12 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmDeleteKeys(msg)
 	case ViewHelp:
 		return m.handleHelpViewKeys(msg)
+	case ViewNotesInput:
+		return m.handleNotesInputKeys(msg)
+	case ViewDurationInput:
+		return m.handleDurationInputKeys(msg)
+	case ViewBillableToggle:
+		return m.handleBillableToggleKeys(msg)
 	}
 
 	return m, nil
@@ -241,6 +323,8 @@ func (m *Model) clearEditState() {
 	m.newEntryNotes = ""
 	m.newEntryHours = ""
 	m.newEntryBillable = true
+	m.notesInput = nil
+	m.durationInput = nil
 	m.editingEntry = nil
 	m.editNotes = ""
 	m.editHours = ""
@@ -343,19 +427,25 @@ func (m Model) renderTimeEntry(entry harvest.TimeEntry, isSelected bool, styles 
 		hoursText = styles.RunningIndicator.Render(hoursText)
 	}
 
+	// Truncate long names to fit on screen
+	clientName := truncateString(entry.Client.Name, 25)
+	projectName := truncateString(entry.Project.Name, 30)
+	taskName := truncateString(entry.Task.Name, 25)
+
 	// Build the entry content
 	entryContent := lipgloss.JoinVertical(lipgloss.Left,
 		// First line: Project info and hours
 		lipgloss.JoinHorizontal(lipgloss.Left,
 			statusIcon,
-			styles.PrimaryText.Render(entry.Client.Name+" → "+entry.Project.Name+" → "+entry.Task.Name),
+			styles.PrimaryText.Render(clientName+" → "+projectName+" → "+taskName),
 			lipgloss.NewStyle().Width(4).Align(lipgloss.Right).Render(""),
 			hoursText,
 		),
-		// Second line: Notes (if any)
+		// Second line: Notes (if any, truncated)
 		func() string {
 			if entry.Notes != "" {
-				return "  " + styles.SecondaryText.Render(entry.Notes)
+				notes := truncateString(entry.Notes, 70)
+				return "  " + styles.SecondaryText.Render(notes)
 			}
 			return ""
 		}(),
@@ -373,6 +463,14 @@ func formatHoursSimple(hours float64) string {
 	return fmt.Sprintf("%d:%02d", h, m)
 }
 
+// truncateString truncates a string to the given max length, adding "..." if truncated.
+func truncateString(s string, maxLen int) string {
+	if maxLen <= 3 || len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
 // projectItem represents a project in the selection list.
 type projectItem struct {
 	project harvest.Project
@@ -384,7 +482,9 @@ func (i projectItem) FilterValue() string {
 }
 
 func (i projectItem) Title() string {
-	return i.client.Name + " → " + i.project.Name
+	clientName := truncateString(i.client.Name, 25)
+	projectName := truncateString(i.project.Name, 35)
+	return clientName + " → " + projectName
 }
 
 func (i projectItem) Description() string {
@@ -417,7 +517,7 @@ func (i taskItem) FilterValue() string {
 }
 
 func (i taskItem) Title() string {
-	return i.task.Name
+	return truncateString(i.task.Name, 50)
 }
 
 func (i taskItem) Description() string {
@@ -577,15 +677,284 @@ func (m Model) renderTaskSelectView() string {
 }
 
 func (m Model) renderEditView() string {
-	return "Edit view - TODO: implement"
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("Edit Time Entry"),
+		),
+	)
+
+	// Entry info
+	var info string
+	if m.editingEntry != nil {
+		info = styles.SecondaryText.Render(fmt.Sprintf(
+			"Editing entry from %s",
+			m.currentDate.Format("Monday, January 2, 2006"),
+		))
+	}
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Tab to navigate fields • Enter to save • Esc to cancel")
+
+	// Fields (placeholder for now)
+	fields := lipgloss.JoinVertical(lipgloss.Left,
+		"Notes: "+m.editNotes,
+		"Duration: "+m.editHours,
+		fmt.Sprintf("Billable: %v", m.editBillable),
+	)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		info,
+		"",
+		fields,
+		"",
+		instructions,
+	)
 }
 
 func (m Model) renderConfirmDeleteView() string {
-	return "Confirm delete view - TODO: implement"
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("Confirm Delete"),
+		),
+	)
+
+	// Entry details
+	var details string
+	if m.editingEntry != nil {
+		details = lipgloss.JoinVertical(lipgloss.Left,
+			styles.Title.Render("Are you sure you want to delete this entry?"),
+			"",
+			styles.SecondaryText.Render(fmt.Sprintf("Notes: %s", m.editingEntry.Notes)),
+			styles.SecondaryText.Render(fmt.Sprintf("Duration: %s", formatHoursSimple(m.editingEntry.Hours))),
+		)
+	}
+
+	// Instructions
+	instructions := styles.WarningText.Render("Press Y to confirm deletion • N or Esc to cancel")
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		details,
+		"",
+		instructions,
+	)
 }
 
 func (m Model) renderHelpView() string {
-	return "Help view - TODO: implement"
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("Help"),
+		),
+	)
+
+	// Keybindings organized by category
+	navigation := lipgloss.JoinVertical(lipgloss.Left,
+		styles.Subtitle.Render("Navigation"),
+		"  ↑/k       Move up",
+		"  ↓/j       Move down",
+		"  ←/h       Previous day",
+		"  →/l       Next day",
+		"  t         Jump to today",
+	)
+
+	entryActions := lipgloss.JoinVertical(lipgloss.Left,
+		styles.Subtitle.Render("Time Entry Actions"),
+		"  n         New entry",
+		"  e         Edit entry",
+		"  d         Delete entry",
+		"  s         Start/restart timer",
+		"  S         Stop timer",
+	)
+
+	general := lipgloss.JoinVertical(lipgloss.Left,
+		styles.Subtitle.Render("General"),
+		"  ?         Toggle this help",
+		"  q/Esc     Quit/Go back",
+		"  Ctrl+C    Force quit",
+	)
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Press ? or Esc to close help")
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		navigation,
+		"",
+		entryActions,
+		"",
+		general,
+		"",
+		instructions,
+	)
+}
+
+func (m Model) renderNotesInputView() string {
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("New Time Entry"),
+			"  ",
+			styles.Subtitle.Render("Step 3: Enter Notes"),
+		),
+	)
+
+	// Selected project and task info
+	var info string
+	if m.selectedProject != nil && m.selectedTask != nil {
+		info = styles.SecondaryText.Render(fmt.Sprintf(
+			"%s → %s → %s",
+			m.selectedProject.Client.Name,
+			m.selectedProject.Name,
+			m.selectedTask.Name,
+		))
+	}
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Press Enter to continue • Esc to cancel")
+
+	// Input field
+	var inputView string
+	if m.notesInput != nil {
+		inputView = m.notesInput.View()
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		info,
+		"",
+		inputView,
+		"",
+		instructions,
+	)
+}
+
+func (m Model) renderDurationInputView() string {
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("New Time Entry"),
+			"  ",
+			styles.Subtitle.Render("Step 4: Enter Duration"),
+		),
+	)
+
+	// Selected info
+	var info string
+	if m.selectedProject != nil && m.selectedTask != nil {
+		info = styles.SecondaryText.Render(fmt.Sprintf(
+			"%s → %s → %s",
+			m.selectedProject.Client.Name,
+			m.selectedProject.Name,
+			m.selectedTask.Name,
+		))
+	}
+
+	// Notes info
+	notesInfo := ""
+	if m.newEntryNotes != "" {
+		notesInfo = styles.SecondaryText.Render(fmt.Sprintf("Notes: %s", m.newEntryNotes))
+	}
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Enter duration in HH:MM format • Press Enter to continue • Esc to go back")
+
+	// Input field
+	var inputView string
+	if m.durationInput != nil {
+		inputView = m.durationInput.View()
+	}
+
+	// Status message if any
+	statusMsg := ""
+	if m.statusMessage != "" {
+		statusMsg = styles.ErrorText.Render(m.statusMessage)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		info,
+		notesInfo,
+		"",
+		inputView,
+		"",
+		instructions,
+		statusMsg,
+	)
+}
+
+func (m Model) renderBillableToggleView() string {
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("New Time Entry"),
+			"  ",
+			styles.Subtitle.Render("Step 5: Billable Status"),
+		),
+	)
+
+	// Selected info
+	var info string
+	if m.selectedProject != nil && m.selectedTask != nil {
+		info = styles.SecondaryText.Render(fmt.Sprintf(
+			"%s → %s → %s",
+			m.selectedProject.Client.Name,
+			m.selectedProject.Name,
+			m.selectedTask.Name,
+		))
+	}
+
+	// Entry details
+	details := []string{}
+	if m.newEntryNotes != "" {
+		details = append(details, fmt.Sprintf("Notes: %s", m.newEntryNotes))
+	}
+	if m.newEntryHours != "" {
+		details = append(details, fmt.Sprintf("Duration: %s", m.newEntryHours))
+	}
+	detailsView := styles.SecondaryText.Render(lipgloss.JoinVertical(lipgloss.Left, details...))
+
+	// Billable toggle
+	billableStatus := "[ ] Non-billable"
+	if m.newEntryBillable {
+		billableStatus = "[x] Billable"
+	}
+	billableView := styles.SecondaryText.Render(billableStatus)
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Press Space/Tab/B to toggle • Enter to create entry • Esc to go back")
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		info,
+		"",
+		detailsView,
+		"",
+		billableView,
+		"",
+		instructions,
+	)
 }
 
 // handleListViewKeys handles key presses in the main list view.
@@ -594,7 +963,7 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Check for escape/quit first
 	switch msg.String() {
-	case "escape", "q":
+	case "esc", "q":
 		return m, tea.Quit
 	}
 
@@ -646,6 +1015,10 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			selectedEntry := m.timeEntries[m.selectedEntryIndex]
 			if selectedEntry.IsLocked {
 				m.statusMessage = "Cannot edit locked time entry."
+				return m, nil
+			}
+			if selectedEntry.IsRunning {
+				m.statusMessage = "Cannot edit running time entry. Stop the timer first."
 				return m, nil
 			}
 			m.editingEntry = &selectedEntry
@@ -712,7 +1085,7 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg.String() {
-	case "escape":
+	case "esc":
 		// Cancel project selection and return to main list
 		m.currentView = ViewList
 		m.selectedProject = nil
@@ -761,8 +1134,13 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 								if pwt.Tasks[i].ID == *recentTaskID {
 									// Found the task from the recent
 									m.selectedTask = &pwt.Tasks[i]
-									m.statusMessage = "Selected: " + item.client.Name + " → " + item.project.Name + " → " + pwt.Tasks[i].Name
-									m.currentView = ViewList
+									// Initialize notes input
+									notesInput := textinput.New()
+									notesInput.Focus()
+									notesInput.Placeholder = "Enter notes (optional)"
+									notesInput.Width = 50
+									m.notesInput = &notesInput
+									m.currentView = ViewNotesInput
 									return m, nil
 								}
 							}
@@ -772,9 +1150,13 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 						if len(pwt.Tasks) == 1 {
 							// Only one task, skip task selection
 							m.selectedTask = &pwt.Tasks[0]
-							// TODO: Move to notes input view when implemented
-							m.statusMessage = "Selected: " + item.client.Name + " → " + item.project.Name + " → " + pwt.Tasks[0].Name
-							m.currentView = ViewList
+							// Initialize notes input
+							notesInput := textinput.New()
+							notesInput.Focus()
+							notesInput.Placeholder = "Enter notes (optional)"
+							notesInput.Width = 50
+							m.notesInput = &notesInput
+							m.currentView = ViewNotesInput
 						} else {
 							// Multiple tasks, show task selection
 							m.currentView = ViewSelectTask
@@ -797,7 +1179,7 @@ func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg.String() {
-	case "escape":
+	case "esc":
 		// Go back to project selection
 		m.currentView = ViewSelectProject
 		m.selectedProject = nil
@@ -809,14 +1191,13 @@ func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if selected != nil {
 			if item, ok := selected.(taskItem); ok {
 				m.selectedTask = &item.task
-				// TODO: Move to notes input view when implemented
-				if m.selectedProject != nil {
-					m.statusMessage = fmt.Sprintf("Selected: %s → %s → %s",
-						m.selectedProject.Client.Name,
-						m.selectedProject.Name,
-						item.task.Name)
-				}
-				m.currentView = ViewList
+				// Initialize notes input
+				notesInput := textinput.New()
+				notesInput.Focus()
+				notesInput.Placeholder = "Enter notes (optional)"
+				notesInput.Width = 50
+				m.notesInput = &notesInput
+				m.currentView = ViewNotesInput
 			}
 		}
 		return m, nil
@@ -829,11 +1210,10 @@ func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "escape":
-		// Return to main list, clearing any selections
+	case "esc":
+		// Return to main list, clearing all edit and entry state
 		m.currentView = ViewList
-		m.selectedProject = nil
-		m.selectedTask = nil
+		m.clearEditState()
 		return m, nil
 	}
 	return m, nil
@@ -841,9 +1221,16 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) handleConfirmDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "escape", "n":
+	case "esc", "n":
 		// Cancel deletion and return to main list
 		m.currentView = ViewList
+		m.editingEntry = nil
+		return m, nil
+	case "y":
+		// Confirm deletion
+		if m.editingEntry != nil {
+			return m, deleteTimeEntryCmd(m.harvestClient, m.editingEntry.ID)
+		}
 		return m, nil
 	}
 	return m, nil
@@ -851,10 +1238,95 @@ func (m Model) handleConfirmDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) handleHelpViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "escape", "q", "?":
+	case "esc", "q", "?":
 		// Return to main list
 		m.currentView = ViewList
 		return m, nil
+	}
+	return m, nil
+}
+
+func (m Model) handleNotesInputKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg.String() {
+	case "esc":
+		// Cancel and return to main list
+		m.currentView = ViewList
+		m.selectedProject = nil
+		m.selectedTask = nil
+		m.notesInput = nil
+		return m, nil
+	case "enter":
+		// Store notes and move to duration input
+		if m.notesInput != nil {
+			m.newEntryNotes = m.notesInput.Value()
+		}
+		// Initialize duration input
+		durationInput := textinput.New()
+		durationInput.Focus()
+		durationInput.Placeholder = "Enter duration (e.g., 1:30)"
+		durationInput.Width = 20
+		m.durationInput = &durationInput
+		m.currentView = ViewDurationInput
+		return m, nil
+	}
+
+	// Pass other messages to the text input
+	if m.notesInput != nil {
+		*m.notesInput, cmd = m.notesInput.Update(msg)
+	}
+	return m, cmd
+}
+
+func (m Model) handleDurationInputKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg.String() {
+	case "esc":
+		// Go back to notes input
+		m.currentView = ViewNotesInput
+		m.durationInput = nil
+		return m, nil
+	case "enter":
+		// Validate and store duration
+		if m.durationInput != nil {
+			duration := m.durationInput.Value()
+			if duration == "" {
+				duration = "0:00"
+			}
+			// Validate duration format
+			if _, err := domain.ParseDuration(duration); err != nil {
+				m.statusMessage = "Invalid duration format. Use HH:MM (e.g., 1:30)"
+				return m, nil
+			}
+			m.newEntryHours = duration
+			m.newEntryBillable = true // Default to billable
+			m.currentView = ViewBillableToggle
+		}
+		return m, nil
+	}
+
+	// Pass other messages to the text input
+	if m.durationInput != nil {
+		*m.durationInput, cmd = m.durationInput.Update(msg)
+	}
+	return m, cmd
+}
+
+func (m Model) handleBillableToggleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		// Go back to duration input
+		m.currentView = ViewDurationInput
+		return m, nil
+	case "tab", " ", "b":
+		// Toggle billable status
+		m.newEntryBillable = !m.newEntryBillable
+		return m, nil
+	case "enter":
+		// Create the time entry
+		return m, m.createTimeEntry()
 	}
 	return m, nil
 }
@@ -878,6 +1350,21 @@ type timeEntryStartedMsg struct {
 type timeEntryStoppedMsg struct {
 	entry *harvest.TimeEntry
 	err   error
+}
+
+type timeEntryCreatedMsg struct {
+	entry *harvest.TimeEntry
+	err   error
+}
+
+type timeEntryUpdatedMsg struct {
+	entry *harvest.TimeEntry
+	err   error
+}
+
+type timeEntryDeletedMsg struct {
+	entryID int
+	err     error
 }
 
 // Commands for fetching data
@@ -918,5 +1405,54 @@ func stopTimeEntryCmd(client *harvest.Client, entryID int) tea.Cmd {
 	return func() tea.Msg {
 		entry, err := client.StopTimeEntry(entryID)
 		return timeEntryStoppedMsg{entry: entry, err: err}
+	}
+}
+
+func deleteTimeEntryCmd(client *harvest.Client, entryID int) tea.Cmd {
+	return func() tea.Msg {
+		err := client.DeleteTimeEntry(entryID)
+		return timeEntryDeletedMsg{entryID: entryID, err: err}
+	}
+}
+
+// createTimeEntry creates a new time entry and returns a command
+func (m Model) createTimeEntry() tea.Cmd {
+	if m.selectedProject == nil || m.selectedTask == nil {
+		return nil
+	}
+
+	// Parse duration
+	hours, err := domain.ParseDuration(m.newEntryHours)
+	if err != nil {
+		return nil
+	}
+
+	request := harvest.CreateTimeEntryRequest{
+		ProjectID:  m.selectedProject.ID,
+		TaskID:     m.selectedTask.ID,
+		SpentDate:  m.currentDate.Format("2006-01-02"),
+		Hours:      hours,
+		Notes:      m.newEntryNotes,
+		IsBillable: &m.newEntryBillable,
+	}
+
+	return func() tea.Msg {
+		entry, err := m.harvestClient.CreateTimeEntry(request)
+		if err != nil {
+			return timeEntryCreatedMsg{err: err}
+		}
+
+		// Update recents
+		m.appState.AddRecent(
+			m.selectedProject.Client.ID,
+			m.selectedProject.ID,
+			m.selectedTask.ID,
+		)
+		if saveErr := m.appState.Save(); saveErr != nil {
+			// Log error but don't fail the operation
+			fmt.Printf("Failed to save recents: %v\n", saveErr)
+		}
+
+		return timeEntryCreatedMsg{entry: entry}
 	}
 }

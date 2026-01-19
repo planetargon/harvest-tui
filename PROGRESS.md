@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step  
-Step 86: Write tests for notes input view
+Step 126: Final README update with complete usage instructions and keybindings
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -91,7 +91,10 @@ Phase 7 (Domain Logic) completed successfully - sorting and calculation function
 Phase 8 (Harvest API Client - Setup) completed successfully - HTTP client wrapper with auth and comprehensive error handling tests.
 Phase 9 (Harvest API Client - Read Operations) completed successfully - projects, task assignments, time entries, and project/task aggregation.
 Phase 10 (Harvest API Client - Write Operations) completed successfully - create, update, delete time entries, and start/stop timer functionality with comprehensive tests.
-Phase 11 (TUI Foundation) in progress - view states enum, app model, keybindings, and styles defined.
+Phase 11 (TUI Foundation) completed successfully - view states enum, app model, keybindings, and styles defined.
+Phase 12-20 (TUI Implementation) completed successfully - full TUI with all views and interactions.
+Phase 21 (Integration) completed successfully - API client wired up, config and state management integrated.
+Phase 22 (Edge Cases) completed successfully - all edge cases handled with proper error messages and truncation.
 
 ---
 
@@ -213,58 +216,58 @@ Phase 11 (TUI Foundation) in progress - view states enum, app model, keybindings
 - [x] Step 85: Implement cancel behavior throughout new entry flow
 
 ### Phase 16: TUI New Entry - Details (Steps 86-91)
-- [ ] Step 86: Write tests for notes input view
-- [ ] Step 87: Implement notes input with text input component
-- [ ] Step 88: Write tests for billable toggle
-- [ ] Step 89: Implement billable toggle
-- [ ] Step 90: Write tests for entry creation API call on confirm
-- [ ] Step 91: Implement entry creation with API call and recents update
+- [x] Step 86: Write tests for notes input view
+- [x] Step 87: Implement notes input with text input component
+- [x] Step 88: Write tests for billable toggle
+- [x] Step 89: Implement billable toggle
+- [x] Step 90: Write tests for entry creation API call on confirm
+- [x] Step 91: Implement entry creation with API call and recents update
 
 ### Phase 17: TUI Start/Stop Timer (Steps 92-96)
-- [ ] Step 92: Write tests for start timer action on stopped entry
-- [ ] Step 93: Write tests for stop timer action on running entry
-- [ ] Step 94: Write tests for blocked start/stop on locked entry
-- [ ] Step 95: Implement start/stop timer with API call
-- [ ] Step 96: Implement locked entry check with user feedback
+- [x] Step 92: Write tests for start timer action on stopped entry
+- [x] Step 93: Write tests for stop timer action on running entry
+- [x] Step 94: Write tests for blocked start/stop on locked entry
+- [x] Step 95: Implement start/stop timer with API call
+- [x] Step 96: Implement locked entry check with user feedback
 
 ### Phase 18: TUI Edit Entry (Steps 97-103)
-- [ ] Step 97: Write tests for view transition to edit on `e`
-- [ ] Step 98: Write tests for blocked edit on locked entry
-- [ ] Step 99: Implement edit view (notes field)
-- [ ] Step 100: Implement edit view (duration field with validation)
-- [ ] Step 101: Implement edit view (billable toggle)
-- [ ] Step 102: Write tests for edit save with API call
-- [ ] Step 103: Implement edit save functionality
+- [x] Step 97: Write tests for view transition to edit on `e`
+- [x] Step 98: Write tests for blocked edit on locked entry
+- [x] Step 99: Implement edit view (notes field)
+- [x] Step 100: Implement edit view (duration field with validation)
+- [x] Step 101: Implement edit view (billable toggle)
+- [x] Step 102: Write tests for edit save with API call
+- [x] Step 103: Implement edit save functionality
 
 ### Phase 19: TUI Delete Entry (Steps 104-109)
-- [ ] Step 104: Write tests for view transition to delete confirmation on `d`
-- [ ] Step 105: Write tests for blocked delete on locked entry
-- [ ] Step 106: Implement delete confirmation view
-- [ ] Step 107: Write tests for delete action on `y` confirm
-- [ ] Step 108: Write tests for cancel delete on `n` or escape
-- [ ] Step 109: Implement delete functionality with API call
+- [x] Step 104: Write tests for view transition to delete confirmation on `d`
+- [x] Step 105: Write tests for blocked delete on locked entry
+- [x] Step 106: Implement delete confirmation view
+- [x] Step 107: Write tests for delete action on `y` confirm
+- [x] Step 108: Write tests for cancel delete on `n` or escape
+- [x] Step 109: Implement delete functionality with API call
 
 ### Phase 20: TUI Polish (Steps 110-115)
-- [ ] Step 110: Implement help overlay view listing all keybindings
-- [ ] Step 111: Implement status messages for successful actions (created, updated, deleted)
-- [ ] Step 112: Implement status messages for errors
-- [ ] Step 113: Add running timer indicator (⏱️) to entry display
-- [ ] Step 114: Add locked indicator (🔒) to entry display
-- [ ] Step 115: Review and refine all view layouts for consistency
+- [x] Step 110: Implement help overlay view listing all keybindings
+- [x] Step 111: Implement status messages for successful actions (created, updated, deleted)
+- [x] Step 112: Implement status messages for errors
+- [x] Step 113: Add running timer indicator (⏱️) to entry display
+- [x] Step 114: Add locked indicator (🔒) to entry display
+- [x] Step 115: Review and refine all view layouts for consistency
 
 ### Phase 21: Integration (Steps 116-120)
-- [ ] Step 116: Wire up real API client to TUI (replace mock data)
-- [ ] Step 117: Integrate config loading at startup with error handling
-- [ ] Step 118: Integrate state loading/saving for recents
-- [ ] Step 119: Test full flow: launch → load data → create entry
-- [ ] Step 120: Test full flow: start/stop timer → edit → delete
+- [x] Step 116: Wire up real API client to TUI (replace mock data)
+- [x] Step 117: Integrate config loading at startup with error handling
+- [x] Step 118: Integrate state loading/saving for recents
+- [x] Step 119: Test full flow: launch → load data → create entry
+- [x] Step 120: Test full flow: start/stop timer → edit → delete
 
 ### Phase 22: Edge Cases (Steps 121-125)
-- [ ] Step 121: Handle edge case: no projects assigned to user
-- [ ] Step 122: Handle edge case: project with no tasks
-- [ ] Step 123: Handle edge case: API unavailable at startup
-- [ ] Step 124: Handle edge case: API fails mid-operation
-- [ ] Step 125: Handle edge case: very long project/task/client names (truncation)
+- [x] Step 121: Handle edge case: no projects assigned to user
+- [x] Step 122: Handle edge case: project with no tasks
+- [x] Step 123: Handle edge case: API unavailable at startup
+- [x] Step 124: Handle edge case: API fails mid-operation
+- [x] Step 125: Handle edge case: very long project/task/client names (truncation)
 
 ### Phase 23: Final Polish (Steps 126-130)
 - [ ] Step 126: Final README update with complete usage instructions and keybindings
