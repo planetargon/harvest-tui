@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -333,127 +334,192 @@ func (m *Model) clearEditState() {
 
 // renderListView renders the main list view showing time entries for the current date.
 func (m Model) renderListView() string {
-	styles := DefaultStyles()
+	// Calculate dimensions
+	width := 65 // Fixed width for consistent layout
+	if m.width > 0 {
+		width = min(m.width-2, 80) // Cap at 80 chars wide
+	}
 
-	// Header with title and current date
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("Harvest TUI"),
-			"  ",
-			styles.Subtitle.Render(m.currentDate.Format("Monday, January 2, 2006")),
-		),
+	// Format date navigation
+	dateStr := m.currentDate.Format("Mon, Jan 2, 2006")
+	dateNav := fmt.Sprintf("◀ %s ▶", dateStr)
+
+	// Title bar with date navigation
+	titleBar := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		"  Harvest Time Tracker",
+		lipgloss.NewStyle().Width(width-26-len(dateNav)).Render(""),
+		dateNav,
+		"  ",
 	)
-
-	// Handle loading state
-	if m.loading {
-		content := styles.Content.Render("Loading...")
-		return lipgloss.JoinVertical(lipgloss.Left, header, content)
-	}
-
-	// Handle error state
-	if m.errorMessage != "" {
-		content := styles.Content.Render(
-			styles.ErrorText.Render("Error: " + m.errorMessage),
-		)
-		return lipgloss.JoinVertical(lipgloss.Left, header, content)
-	}
-
-	// Handle empty state
-	if len(m.timeEntries) == 0 {
-		emptyState := styles.Content.Render(
-			lipgloss.JoinVertical(lipgloss.Center,
-				styles.MutedText.Render("No time entries for this date"),
-				"",
-				styles.SecondaryText.Render("Press 'n' to create a new entry"),
-			),
-		)
-
-		// Add daily total (0:00 for empty day)
-		footer := styles.Footer.Render(
-			lipgloss.JoinHorizontal(lipgloss.Left,
-				"Daily total: "+styles.PrimaryText.Render("0:00"),
-			),
-		)
-
-		return lipgloss.JoinVertical(lipgloss.Left, header, emptyState, footer)
-	}
-
-	// Render time entries
-	var entries []string
-	for i, entry := range m.timeEntries {
-		isSelected := i == m.selectedEntryIndex
-		entryView := m.renderTimeEntry(entry, isSelected, styles)
-		entries = append(entries, entryView)
-	}
 
 	// Calculate daily total
 	totalHours := 0.0
 	for _, entry := range m.timeEntries {
 		totalHours += entry.Hours
 	}
+	totalStr := formatHoursSimple(totalHours)
 
-	content := styles.Content.Render(
-		lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.JoinVertical(lipgloss.Left, entries...),
+	// Section header
+	entriesText := "  Entries"
+	totalText := "Total: " + totalStr + "  "
+	paddingWidth := width - len(entriesText) - len(totalText)
+	if paddingWidth < 1 {
+		paddingWidth = 1
+	}
+	sectionHeader := entriesText + strings.Repeat(" ", paddingWidth) + totalText
+
+	// Divider
+	divider := "  " + strings.Repeat("─", width-4)
+
+	// Handle loading state
+	if m.loading {
+		content := []string{
+			titleBar,
+			sectionHeader,
+			divider,
+			"    Loading...",
 			"",
-			styles.StatusBar.Render(
-				"Daily total: "+styles.PrimaryText.Render(formatHoursSimple(totalHours)),
-			),
-		),
-	)
+		}
+		return m.wrapInBox(strings.Join(content, "\n"), width)
+	}
 
-	// Status message
-	var statusLine string
+	// Handle error state
+	if m.errorMessage != "" {
+		content := []string{
+			titleBar,
+			sectionHeader,
+			divider,
+			"    Error: " + m.errorMessage,
+			"",
+		}
+		return m.wrapInBox(strings.Join(content, "\n"), width)
+	}
+
+	// Handle empty state
+	if len(m.timeEntries) == 0 {
+		content := []string{
+			titleBar,
+			sectionHeader,
+			divider,
+			"",
+			"    No time entries for this date",
+			"    Press 'n' to create a new entry",
+			"",
+		}
+		return m.wrapInBox(strings.Join(content, "\n"), width)
+	}
+
+	// Render time entries
+	var entryLines []string
+	for i, entry := range m.timeEntries {
+		isSelected := i == m.selectedEntryIndex
+		entryLines = append(entryLines, m.renderCompactTimeEntry(entry, isSelected, width-4))
+	}
+
+	// Build content
+	contentLines := []string{titleBar, sectionHeader, divider}
+	contentLines = append(contentLines, entryLines...)
+
+	// Add status message if present
 	if m.statusMessage != "" {
-		statusLine = styles.Footer.Render(styles.SuccessText.Render(m.statusMessage))
+		contentLines = append(contentLines, "", "  "+m.statusMessage)
 	}
 
-	parts := []string{header, content}
-	if statusLine != "" {
-		parts = append(parts, statusLine)
-	}
-
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	return m.wrapInBox(strings.Join(contentLines, "\n"), width)
 }
 
-// renderTimeEntry renders a single time entry with appropriate styling.
-func (m Model) renderTimeEntry(entry harvest.TimeEntry, isSelected bool, styles Styles) string {
-	// Status indicator
-	statusIcon, _ := styles.StatusIndicator(entry.IsRunning, entry.IsLocked)
+// wrapInBox wraps content in a box border with footer.
+func (m Model) wrapInBox(content string, width int) string {
+	// Top border
+	top := "┌" + strings.Repeat("─", width-2) + "┐"
+
+	// Content lines with side borders
+	lines := strings.Split(content, "\n")
+	var boxedLines []string
+	boxedLines = append(boxedLines, top)
+
+	for _, line := range lines {
+		// Pad line to width
+		padded := line
+		if len(line) < width-2 {
+			padded = line + strings.Repeat(" ", width-2-len(line))
+		} else if len(line) > width-2 {
+			padded = line[:width-2]
+		}
+		boxedLines = append(boxedLines, "│"+padded+"│")
+	}
+
+	// Footer with keybindings
+	footerSeparator := "├" + strings.Repeat("─", width-2) + "┤"
+	footer := "  n new  e edit  s start/stop  d delete  ? help  q quit"
+	if len(footer) > width-2 {
+		footer = footer[:width-2]
+	}
+	footerPadded := footer + strings.Repeat(" ", width-2-len(footer))
+
+	// Bottom border
+	bottom := "└" + strings.Repeat("─", width-2) + "┘"
+
+	boxedLines = append(boxedLines, footerSeparator)
+	boxedLines = append(boxedLines, "│"+footerPadded+"│")
+	boxedLines = append(boxedLines, bottom)
+
+	return strings.Join(boxedLines, "\n")
+}
+
+// renderCompactTimeEntry renders a single time entry in compact format.
+func (m Model) renderCompactTimeEntry(entry harvest.TimeEntry, isSelected bool, maxWidth int) string {
+	var lines []string
+
+	// Status indicators
+	statusIcon := "  "
+	if isSelected {
+		statusIcon = "▶ "
+	}
+
+	timerIcon := ""
+	if entry.IsRunning {
+		timerIcon = " ⏱️"
+	}
+	if entry.IsLocked {
+		timerIcon = " 🔒"
+	}
 
 	// Format hours
 	hoursText := formatHoursSimple(entry.Hours)
-	if entry.IsRunning {
-		hoursText = styles.RunningIndicator.Render(hoursText)
-	}
 
-	// Truncate long names to fit on screen
-	clientName := truncateString(entry.Client.Name, 25)
-	projectName := truncateString(entry.Project.Name, 30)
-	taskName := truncateString(entry.Task.Name, 25)
+	// First line: Client → Project → Task + hours
+	clientName := truncateString(entry.Client.Name, 20)
+	projectName := truncateString(entry.Project.Name, 25)
+	taskName := truncateString(entry.Task.Name, 20)
 
-	// Build the entry content
-	entryContent := lipgloss.JoinVertical(lipgloss.Left,
-		// First line: Project info and hours
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			statusIcon,
-			styles.PrimaryText.Render(clientName+" → "+projectName+" → "+taskName),
-			lipgloss.NewStyle().Width(4).Align(lipgloss.Right).Render(""),
-			hoursText,
-		),
-		// Second line: Notes (if any, truncated)
-		func() string {
-			if entry.Notes != "" {
-				notes := truncateString(entry.Notes, 70)
-				return "  " + styles.SecondaryText.Render(notes)
-			}
-			return ""
-		}(),
+	firstLine := fmt.Sprintf("%s%s → %s → %s",
+		statusIcon,
+		clientName,
+		projectName,
+		taskName,
 	)
 
-	// Apply appropriate styling based on entry state
-	entryStyle := styles.TimeEntryStyle(isSelected, entry.IsRunning, entry.IsLocked)
-	return entryStyle.Render(entryContent)
+	// Calculate padding for hours alignment
+	padding := maxWidth - len(firstLine) - len(hoursText) - len(timerIcon) - 2
+	if padding < 1 {
+		padding = 1
+	}
+
+	firstLine = firstLine + strings.Repeat(" ", padding) + hoursText + timerIcon
+	lines = append(lines, firstLine)
+
+	// Second line: Notes (if any)
+	if entry.Notes != "" {
+		notesLine := "    \"" + truncateString(entry.Notes, maxWidth-8) + "\""
+		lines = append(lines, notesLine)
+	}
+
+	// Add blank line after entry (except for loading/error states)
+	lines = append(lines, "")
+
+	return strings.Join(lines, "\n")
 }
 
 // formatHoursSimple formats hours as H:MM format.
@@ -469,6 +535,14 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// min returns the minimum of two integers.
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // projectItem represents a project in the selection list.

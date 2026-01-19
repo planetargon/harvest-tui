@@ -307,11 +307,11 @@ func TestMainListViewRendering(t *testing.T) {
 		output := model.View()
 
 		// Check that the output contains expected content
-		if !strings.Contains(output, "Harvest TUI") {
-			t.Error("expected output to contain title 'Harvest TUI'")
+		if !strings.Contains(output, "Harvest Time Tracker") {
+			t.Error("expected output to contain title 'Harvest Time Tracker'")
 		}
 
-		if !strings.Contains(output, "2025-01-19") && !strings.Contains(output, "January") {
+		if !strings.Contains(output, "Jan 19, 2025") {
 			t.Errorf("expected output to contain current date, got output: %s", output)
 		}
 
@@ -362,7 +362,7 @@ func TestMainListViewRendering(t *testing.T) {
 			t.Error("expected output to show empty state guidance")
 		}
 
-		if !strings.Contains(output, "2025-01-19") && !strings.Contains(output, "January") {
+		if !strings.Contains(output, "Jan 19, 2025") {
 			t.Errorf("expected output to contain current date even when empty, got output: %s", output)
 		}
 	})
@@ -1067,8 +1067,8 @@ func TestDailyTotalDisplay(t *testing.T) {
 		output := model.View()
 
 		// Check that daily total is calculated correctly (2.5 + 1.0 + 0.75 = 4.25 hours = 4:15)
-		if !strings.Contains(output, "Daily total") {
-			t.Error("expected output to contain 'Daily total'")
+		if !strings.Contains(output, "Total:") {
+			t.Error("expected output to contain 'Total:'")
 		}
 
 		if !strings.Contains(output, "4:15") {
@@ -1084,12 +1084,12 @@ func TestDailyTotalDisplay(t *testing.T) {
 		output := model.View()
 
 		// Should show 0:00 for empty day
-		if !strings.Contains(output, "Daily total") {
-			t.Error("expected output to contain 'Daily total'")
+		if !strings.Contains(output, "Total:") {
+			t.Error("expected output to contain 'Total:'")
 		}
 
 		if !strings.Contains(output, "0:00") {
-			t.Error("expected output to contain daily total '0:00'")
+			t.Errorf("expected output to contain daily total '0:00', got: %s", output)
 		}
 	})
 
