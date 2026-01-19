@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step  
-Step 80: Implement recents section with divider in project selection
+Step 81: Write tests for transition to task selection after project chosen
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -203,7 +203,7 @@ Phase 11 (TUI Foundation) in progress - view states enum, app model, keybindings
 - [x] Step 77: Write tests for project list displaying Client → Project format
 - [x] Step 78: Implement alphabetically sorted project list
 - [x] Step 79: Write tests for recents appearing at top of project list
-- [ ] Step 80: Implement recents section with divider in project selection
+- [x] Step 80: Implement recents section with divider in project selection
 
 ### Phase 15: TUI New Entry - Task Selection (Steps 81-85)
 - [ ] Step 81: Write tests for transition to task selection after project chosen
