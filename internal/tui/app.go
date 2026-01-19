@@ -397,6 +397,7 @@ func (i projectItem) Description() string {
 }
 
 // taskItem represents a task in the selection list.
+
 type taskItem struct {
 	task harvest.Task
 }

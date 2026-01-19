@@ -1137,3 +1137,205 @@ func TestDailyTotalDisplay(t *testing.T) {
 		}
 	})
 }
+
+func TestProjectSelectionView(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model with projects when project list rendered then displays Client → Project format", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   1,
+					Name: "Website Redesign",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Acme Corporation",
+					},
+				},
+				Tasks: []harvest.Task{
+					{ID: 1, Name: "Design"},
+					{ID: 2, Name: "Development"},
+				},
+			},
+			{
+				Project: harvest.Project{
+					ID:   2,
+					Name: "Mobile App",
+					Client: harvest.ProjectClient{
+						ID:   200,
+						Name: "BigCorp Inc",
+					},
+				},
+				Tasks: []harvest.Task{
+					{ID: 3, Name: "Frontend"},
+				},
+			},
+		}
+
+		model.currentView = ViewSelectProject
+		model.updateProjectList()
+		// Set list dimensions so items can be rendered
+		model.projectList.SetSize(80, 16)
+
+		output := model.View()
+
+		// Check that the output contains the Client → Project format
+		if !strings.Contains(output, "Acme Corporation → Website Redesign") {
+			t.Error("expected output to contain 'Acme Corporation → Website Redesign'")
+		}
+
+		if !strings.Contains(output, "BigCorp Inc → Mobile App") {
+			t.Error("expected output to contain 'BigCorp Inc → Mobile App'")
+		}
+
+		// Check for proper headers and instructions
+		if !strings.Contains(output, "New Time Entry") {
+			t.Error("expected output to contain 'New Time Entry' header")
+		}
+
+		if !strings.Contains(output, "Step 1: Choose Project") {
+			t.Error("expected output to contain 'Step 1: Choose Project' subtitle")
+		}
+
+		if !strings.Contains(output, "Press Enter to select") {
+			t.Error("expected output to contain selection instructions")
+		}
+	})
+
+	t.Run("given model with recents when project list rendered then shows recents at top", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+
+		// Set up projects
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   1,
+					Name: "Website Redesign",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Acme Corporation",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 1, Name: "Design"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:   2,
+					Name: "Mobile App",
+					Client: harvest.ProjectClient{
+						ID:   200,
+						Name: "BigCorp Inc",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 2, Name: "Development"}},
+			},
+		}
+
+		// Set up recents - Mobile App should appear first
+		model.appState.Recents = []state.RecentEntry{
+			{
+				ClientID:  200,
+				ProjectID: 2,
+				TaskID:    2,
+			},
+		}
+
+		model.currentView = ViewSelectProject
+		model.updateProjectList()
+
+		// Verify the list has the recent project first
+		items := model.projectList.Items()
+		if len(items) < 2 {
+			t.Fatalf("expected at least 2 items in project list, got %d", len(items))
+		}
+
+		// First item should be the recent
+		firstItem, ok := items[0].(projectItem)
+		if !ok {
+			t.Fatal("first item is not a projectItem")
+		}
+
+		if firstItem.project.ID != 2 || firstItem.client.ID != 200 {
+			t.Error("expected first item to be the recent project (Mobile App from BigCorp Inc)")
+		}
+
+		expectedTitle := firstItem.Title()
+		if expectedTitle != "BigCorp Inc → Mobile App" {
+			t.Errorf("expected first item title to be 'BigCorp Inc → Mobile App', got '%s'", expectedTitle)
+		}
+	})
+
+	t.Run("given projects when updateProjectList called then list contains correct items with proper descriptions", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   42,
+					Name: "Test Project",
+					Client: harvest.ProjectClient{
+						ID:   300,
+						Name: "Test Client",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 1, Name: "Testing"}},
+			},
+		}
+
+		model.updateProjectList()
+
+		items := model.projectList.Items()
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item in project list, got %d", len(items))
+		}
+
+		item, ok := items[0].(projectItem)
+		if !ok {
+			t.Fatal("item is not a projectItem")
+		}
+
+		// Test Title format
+		expectedTitle := "Test Client → Test Project"
+		if item.Title() != expectedTitle {
+			t.Errorf("expected title '%s', got '%s'", expectedTitle, item.Title())
+		}
+
+		// Test Description format
+		expectedDesc := "Project ID: 42"
+		if item.Description() != expectedDesc {
+			t.Errorf("expected description '%s', got '%s'", expectedDesc, item.Description())
+		}
+
+		// Test FilterValue includes both client and project names
+		filterValue := item.FilterValue()
+		if !strings.Contains(filterValue, "Test Project") {
+			t.Error("expected filter value to contain project name")
+		}
+		if !strings.Contains(filterValue, "Test Client") {
+			t.Error("expected filter value to contain client name")
+		}
+	})
+
+	t.Run("given empty projects list when updateProjectList called then list is empty", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.projectsWithTasks = []harvest.ProjectWithTasks{}
+
+		model.updateProjectList()
+
+		items := model.projectList.Items()
+		if len(items) != 0 {
+			t.Errorf("expected empty project list, got %d items", len(items))
+		}
+
+		if model.projectList.Title != "Select Project" {
+			t.Errorf("expected project list title to be 'Select Project', got '%s'", model.projectList.Title)
+		}
+	})
+}
