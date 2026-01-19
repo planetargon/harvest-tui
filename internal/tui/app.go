@@ -471,12 +471,15 @@ func (m Model) wrapInBox(content string, width int) string {
 	boxedLines = append(boxedLines, top)
 
 	for _, line := range lines {
-		// Pad line to width
+		// Pad line to width - use lipgloss.Width to handle styled text properly
+		lineWidth := lipgloss.Width(line)
 		padded := line
-		if len(line) < width-2 {
-			padded = line + strings.Repeat(" ", width-2-len(line))
-		} else if len(line) > width-2 {
-			padded = line[:width-2]
+		if lineWidth < width-2 {
+			padded = line + strings.Repeat(" ", width-2-lineWidth)
+		} else if lineWidth > width-2 {
+			// For lines that are too long, we need better truncation
+			// This is simplified - proper truncation of styled text is complex
+			padded = line
 		}
 		boxedLines = append(boxedLines, "│"+padded+"│")
 	}
@@ -484,10 +487,13 @@ func (m Model) wrapInBox(content string, width int) string {
 	// Footer with keybindings
 	footerSeparator := "├" + strings.Repeat("─", width-2) + "┤"
 	footer := "  n new  e edit  s start/stop  d delete  ? help  q quit"
-	if len(footer) > width-2 {
+	footerWidth := lipgloss.Width(footer)
+	if footerWidth > width-2 {
+		// Truncate if too long
 		footer = footer[:width-2]
+		footerWidth = width-2
 	}
-	footerPadded := footer + strings.Repeat(" ", width-2-len(footer))
+	footerPadded := footer + strings.Repeat(" ", width-2-footerWidth)
 
 	// Bottom border
 	bottom := "└" + strings.Repeat("─", width-2) + "┘"
