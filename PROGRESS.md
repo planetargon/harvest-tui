@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step  
-Step 77: Write tests for project list displaying Client → Project format
+Step 78: Implement alphabetically sorted project list
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -200,7 +200,7 @@ Phase 11 (TUI Foundation) in progress - view states enum, app model, keybindings
 ### Phase 14: TUI New Entry - Project Selection (Steps 75-80)
 - [x] Step 75: Write tests for view transition to project selection on `n`
 - [x] Step 76: Implement project selection view with Bubbles list
-- [ ] Step 77: Write tests for project list displaying Client → Project format
+- [x] Step 77: Write tests for project list displaying Client → Project format
 - [ ] Step 78: Implement alphabetically sorted project list
 - [ ] Step 79: Write tests for recents appearing at top of project list
 - [ ] Step 80: Implement recents section with divider in project selection

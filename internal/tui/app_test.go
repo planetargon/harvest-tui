@@ -1339,3 +1339,164 @@ func TestProjectSelectionView(t *testing.T) {
 		}
 	})
 }
+
+func TestProjectListSorting(t *testing.T) {
+	cfg := &config.Config{Harvest: config.HarvestConfig{AccountID: "123456", AccessToken: "test-token"}}
+	client := &harvest.Client{}
+	appState := &state.State{Recents: []state.RecentEntry{}}
+
+	t.Run("given model with multiple projects when updateProjectList called then projects are sorted alphabetically by client then project", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+
+		// Add projects in unsorted order - should be sorted after updateProjectList
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   3,
+					Name: "Zoo Project",
+					Client: harvest.ProjectClient{
+						ID:   300,
+						Name: "Charlie Corp",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 1, Name: "Task1"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:   1,
+					Name: "Beta Project",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Alpha Inc",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 2, Name: "Task2"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:   4,
+					Name: "Alpha Project",
+					Client: harvest.ProjectClient{
+						ID:   300,
+						Name: "Charlie Corp",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 3, Name: "Task3"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:   2,
+					Name: "Charlie Project",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Alpha Inc",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 4, Name: "Task4"}},
+			},
+		}
+
+		model.updateProjectList()
+
+		items := model.projectList.Items()
+		if len(items) != 4 {
+			t.Fatalf("expected 4 items, got %d", len(items))
+		}
+
+		// Expected order after sorting:
+		// 1. Alpha Inc → Beta Project
+		// 2. Alpha Inc → Charlie Project
+		// 3. Charlie Corp → Alpha Project
+		// 4. Charlie Corp → Zoo Project
+
+		expectedTitles := []string{
+			"Alpha Inc → Beta Project",
+			"Alpha Inc → Charlie Project",
+			"Charlie Corp → Alpha Project",
+			"Charlie Corp → Zoo Project",
+		}
+
+		for i, expectedTitle := range expectedTitles {
+			projectItem, ok := items[i].(projectItem)
+			if !ok {
+				t.Fatalf("item %d is not a projectItem", i)
+			}
+
+			actualTitle := projectItem.Title()
+			if actualTitle != expectedTitle {
+				t.Errorf("item %d: expected title '%s', got '%s'", i, expectedTitle, actualTitle)
+			}
+		}
+	})
+
+	t.Run("given model with projects from same client when updateProjectList called then projects are sorted by project name", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+
+		// Add projects from same client in unsorted order
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   2,
+					Name: "Zebra Project",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Test Client",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 1, Name: "Task1"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:   1,
+					Name: "Alpha Project",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Test Client",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 2, Name: "Task2"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:   3,
+					Name: "Beta Project",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Test Client",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 3, Name: "Task3"}},
+			},
+		}
+
+		model.updateProjectList()
+
+		items := model.projectList.Items()
+		if len(items) != 3 {
+			t.Fatalf("expected 3 items, got %d", len(items))
+		}
+
+		// Expected order after sorting by project name:
+		// 1. Test Client → Alpha Project
+		// 2. Test Client → Beta Project
+		// 3. Test Client → Zebra Project
+
+		expectedTitles := []string{
+			"Test Client → Alpha Project",
+			"Test Client → Beta Project",
+			"Test Client → Zebra Project",
+		}
+
+		for i, expectedTitle := range expectedTitles {
+			projectItem, ok := items[i].(projectItem)
+			if !ok {
+				t.Fatalf("item %d is not a projectItem", i)
+			}
+
+			actualTitle := projectItem.Title()
+			if actualTitle != expectedTitle {
+				t.Errorf("item %d: expected title '%s', got '%s'", i, expectedTitle, actualTitle)
+			}
+		}
+	})
+}

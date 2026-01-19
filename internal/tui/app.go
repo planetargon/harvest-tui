@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -449,6 +450,7 @@ func (m *Model) updateProjectList() {
 	}
 
 	// Add all projects sorted by client then project name
+	var nonRecentProjects []harvest.ProjectWithTasks
 	for _, pwt := range m.projectsWithTasks {
 		// Skip if already in recents
 		isRecent := false
@@ -459,11 +461,24 @@ func (m *Model) updateProjectList() {
 			}
 		}
 		if !isRecent {
-			items = append(items, projectItem{
-				project: pwt.Project,
-				client:  pwt.Project.Client,
-			})
+			nonRecentProjects = append(nonRecentProjects, pwt)
 		}
+	}
+
+	// Sort non-recent projects by client name then project name
+	sort.Slice(nonRecentProjects, func(i, j int) bool {
+		if nonRecentProjects[i].Project.Client.Name != nonRecentProjects[j].Project.Client.Name {
+			return nonRecentProjects[i].Project.Client.Name < nonRecentProjects[j].Project.Client.Name
+		}
+		return nonRecentProjects[i].Project.Name < nonRecentProjects[j].Project.Name
+	})
+
+	// Add sorted non-recent projects to items
+	for _, pwt := range nonRecentProjects {
+		items = append(items, projectItem{
+			project: pwt.Project,
+			client:  pwt.Project.Client,
+		})
 	}
 
 	m.projectList.SetItems(items)
