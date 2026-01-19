@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/planetargon/argon-harvest-tui/internal/config"
 	"github.com/planetargon/argon-harvest-tui/internal/harvest"
 	"github.com/planetargon/argon-harvest-tui/internal/state"
@@ -112,6 +114,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 
+	case timeEntriesFetchedMsg:
+		if msg.err != nil {
+			m.errorMessage = "Failed to fetch time entries: " + msg.err.Error()
+		} else {
+			m.timeEntries = msg.entries
+			m.errorMessage = ""
+		}
+		m.loading = false
+		return m, nil
+
+	case projectsWithTasksFetchedMsg:
+		if msg.err != nil {
+			m.errorMessage = "Failed to fetch projects: " + msg.err.Error()
+		} else {
+			m.projectsWithTasks = msg.projectsWithTasks
+			m.errorMessage = ""
+		}
+		return m, nil
+
 	default:
 		return m, nil
 	}
@@ -191,9 +212,122 @@ func (m *Model) clearEditState() {
 	m.editBillable = true
 }
 
-// Placeholder methods for view rendering - these will be implemented in subsequent steps
+// renderListView renders the main list view showing time entries for the current date.
 func (m Model) renderListView() string {
-	return "List view - TODO: implement"
+	styles := DefaultStyles()
+
+	// Header with title and current date
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("Harvest TUI"),
+			"  ",
+			styles.Subtitle.Render(m.currentDate.Format("Monday, January 2, 2006")),
+		),
+	)
+
+	// Handle loading state
+	if m.loading {
+		content := styles.Content.Render("Loading...")
+		return lipgloss.JoinVertical(lipgloss.Left, header, content)
+	}
+
+	// Handle error state
+	if m.errorMessage != "" {
+		content := styles.Content.Render(
+			styles.ErrorText.Render("Error: " + m.errorMessage),
+		)
+		return lipgloss.JoinVertical(lipgloss.Left, header, content)
+	}
+
+	// Handle empty state
+	if len(m.timeEntries) == 0 {
+		emptyState := styles.Content.Render(
+			lipgloss.JoinVertical(lipgloss.Center,
+				styles.MutedText.Render("No time entries for this date"),
+				"",
+				styles.SecondaryText.Render("Press 'n' to create a new entry"),
+			),
+		)
+		return lipgloss.JoinVertical(lipgloss.Left, header, emptyState)
+	}
+
+	// Render time entries
+	var entries []string
+	for i, entry := range m.timeEntries {
+		isSelected := i == m.selectedEntryIndex
+		entryView := m.renderTimeEntry(entry, isSelected, styles)
+		entries = append(entries, entryView)
+	}
+
+	// Calculate daily total
+	totalHours := 0.0
+	for _, entry := range m.timeEntries {
+		totalHours += entry.Hours
+	}
+
+	content := styles.Content.Render(
+		lipgloss.JoinVertical(lipgloss.Left,
+			lipgloss.JoinVertical(lipgloss.Left, entries...),
+			"",
+			styles.StatusBar.Render(
+				"Daily total: "+styles.PrimaryText.Render(formatHoursSimple(totalHours)),
+			),
+		),
+	)
+
+	// Status message
+	var statusLine string
+	if m.statusMessage != "" {
+		statusLine = styles.Footer.Render(styles.SuccessText.Render(m.statusMessage))
+	}
+
+	parts := []string{header, content}
+	if statusLine != "" {
+		parts = append(parts, statusLine)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
+// renderTimeEntry renders a single time entry with appropriate styling.
+func (m Model) renderTimeEntry(entry harvest.TimeEntry, isSelected bool, styles Styles) string {
+	// Status indicator
+	statusIcon, _ := styles.StatusIndicator(entry.IsRunning, entry.IsLocked)
+
+	// Format hours
+	hoursText := formatHoursSimple(entry.Hours)
+	if entry.IsRunning {
+		hoursText = styles.RunningIndicator.Render(hoursText)
+	}
+
+	// Build the entry content
+	entryContent := lipgloss.JoinVertical(lipgloss.Left,
+		// First line: Project info and hours
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			statusIcon,
+			styles.PrimaryText.Render(entry.Client.Name+" → "+entry.Project.Name+" → "+entry.Task.Name),
+			lipgloss.NewStyle().Width(4).Align(lipgloss.Right).Render(""),
+			hoursText,
+		),
+		// Second line: Notes (if any)
+		func() string {
+			if entry.Notes != "" {
+				return "  " + styles.SecondaryText.Render(entry.Notes)
+			}
+			return ""
+		}(),
+	)
+
+	// Apply appropriate styling based on entry state
+	entryStyle := styles.TimeEntryStyle(isSelected, entry.IsRunning, entry.IsLocked)
+	return entryStyle.Render(entryContent)
+}
+
+// formatHoursSimple formats hours as H:MM format.
+func formatHoursSimple(hours float64) string {
+	h := int(hours)
+	m := int((hours - float64(h)) * 60)
+	return fmt.Sprintf("%d:%02d", h, m)
 }
 
 func (m Model) renderProjectSelectView() string {
@@ -241,11 +375,40 @@ func (m Model) handleHelpViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// Commands for fetching data - these will be implemented in subsequent steps
+// Messages for handling async operations
+type timeEntriesFetchedMsg struct {
+	entries []harvest.TimeEntry
+	err     error
+}
+
+type projectsWithTasksFetchedMsg struct {
+	projectsWithTasks []harvest.ProjectWithTasks
+	err               error
+}
+
+// Commands for fetching data
 func fetchTimeEntriesCmd(client *harvest.Client, date time.Time) tea.Cmd {
-	return nil
+	return func() tea.Msg {
+		dateStr := date.Format("2006-01-02")
+		entries, err := client.FetchTimeEntries(dateStr)
+		return timeEntriesFetchedMsg{entries: entries, err: err}
+	}
 }
 
 func fetchProjectsWithTasksCmd(client *harvest.Client) tea.Cmd {
-	return nil
+	return func() tea.Msg {
+		// Fetch projects and task assignments, then aggregate them
+		projects, err := client.FetchProjects()
+		if err != nil {
+			return projectsWithTasksFetchedMsg{err: err}
+		}
+
+		taskAssignments, err := client.FetchTaskAssignments()
+		if err != nil {
+			return projectsWithTasksFetchedMsg{err: err}
+		}
+
+		projectsWithTasks := harvest.AggregateProjectsWithTasks(projects, taskAssignments)
+		return projectsWithTasksFetchedMsg{projectsWithTasks: projectsWithTasks}
+	}
 }
