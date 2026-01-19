@@ -274,7 +274,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	switch m.currentView {
 	case ViewList:
-		return m.renderListView()
+		return m.renderStyledListView()
 	case ViewSelectProject:
 		return m.renderProjectSelectView()
 	case ViewSelectTask:
@@ -1503,7 +1503,7 @@ func deleteTimeEntryCmd(client *harvest.Client, entryID int) tea.Cmd {
 
 // tickCmd returns a command that sends a tick message after a delay
 func tickCmd() tea.Cmd {
-	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
