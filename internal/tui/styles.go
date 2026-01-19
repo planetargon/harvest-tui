@@ -9,8 +9,8 @@ import (
 // Color palette - Harvest branded colors with adaptive support
 var (
 	// Primary Colors
-	AccentColor = lipgloss.AdaptiveColor{Light: "#E85D00", Dark: "#FF6600"} // Harvest orange
-	MutedColor  = lipgloss.AdaptiveColor{Light: "#666666", Dark: "#666666"}
+	AccentColor  = lipgloss.AdaptiveColor{Light: "#E85D00", Dark: "#FF6600"} // Harvest orange
+	MutedColor   = lipgloss.AdaptiveColor{Light: "#666666", Dark: "#666666"}
 	SuccessColor = lipgloss.AdaptiveColor{Light: "#16A34A", Dark: "#22C55E"}
 	WarningColor = lipgloss.AdaptiveColor{Light: "#CA8A04", Dark: "#EAB308"}
 	ErrorColor   = lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#EF4444"}
@@ -28,76 +28,76 @@ var (
 // Base styles - composable building blocks
 var (
 	BaseText = lipgloss.NewStyle().
-		Foreground(PrimaryTextColor)
+			Foreground(PrimaryTextColor)
 
 	SecondaryText = lipgloss.NewStyle().
-		Foreground(SecondaryTextColor)
+			Foreground(SecondaryTextColor)
 
 	MutedText = lipgloss.NewStyle().
-		Foreground(MutedColor)
+			Foreground(MutedColor)
 
 	AccentText = lipgloss.NewStyle().
-		Foreground(AccentColor).
-		Bold(true)
+			Foreground(AccentColor).
+			Bold(true)
 
 	SuccessText = lipgloss.NewStyle().
-		Foreground(SuccessColor)
+			Foreground(SuccessColor)
 
 	WarningText = lipgloss.NewStyle().
-		Foreground(WarningColor)
+			Foreground(WarningColor)
 
 	ErrorText = lipgloss.NewStyle().
-		Foreground(ErrorColor).
-		Bold(true)
+			Foreground(ErrorColor).
+			Bold(true)
 
 	// Selected item with accent left border
 	SelectedItem = lipgloss.NewStyle().
-		Background(SelectedBgColor).
-		BorderLeft(true).
-		BorderStyle(lipgloss.ThickBorder()).
-		BorderForeground(AccentColor).
-		PaddingLeft(1)
+			Background(SelectedBgColor).
+			BorderLeft(true).
+			BorderStyle(lipgloss.ThickBorder()).
+			BorderForeground(AccentColor).
+			PaddingLeft(1)
 
 	// Running timer indicator
 	RunningIndicator = lipgloss.NewStyle().
-		Foreground(AccentColor).
-		Bold(true)
+				Foreground(AccentColor).
+				Bold(true)
 
 	// Locked indicator
 	LockedIndicator = lipgloss.NewStyle().
-		Foreground(WarningColor)
+			Foreground(WarningColor)
 
 	// Header styles
 	AppTitle = lipgloss.NewStyle().
-		Foreground(AccentColor).
-		Bold(true)
+			Foreground(AccentColor).
+			Bold(true)
 
 	DateHeader = lipgloss.NewStyle().
-		Bold(true)
+			Bold(true)
 
 	// Section headers
 	SectionHeader = lipgloss.NewStyle().
-		Foreground(MutedColor).
-		Italic(true)
+			Foreground(MutedColor).
+			Italic(true)
 
 	// Dialog styles
 	DialogBorder = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(WarningColor).
-		Padding(1, 2)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(WarningColor).
+			Padding(1, 2)
 
 	DialogTitle = lipgloss.NewStyle().
-		Foreground(WarningColor).
-		Bold(true)
+			Foreground(WarningColor).
+			Bold(true)
 
 	// Input styles
 	FocusedInput = lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(AccentColor)
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(AccentColor)
 
 	UnfocusedInput = lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(BorderColor)
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(BorderColor)
 )
 
 // Styles defines all the styling for the TUI components.
@@ -125,6 +125,7 @@ type Styles struct {
 	ErrorText     lipgloss.Style
 	SuccessText   lipgloss.Style
 	WarningText   lipgloss.Style
+	HighlightText lipgloss.Style
 
 	// Component styles
 	Card         lipgloss.Style
@@ -180,6 +181,7 @@ func DefaultStyles() Styles {
 		ErrorText:     ErrorText,
 		SuccessText:   SuccessText,
 		WarningText:   WarningText,
+		HighlightText: AccentText,
 
 		// Component styles
 		Card: BaseText.

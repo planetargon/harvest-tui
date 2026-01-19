@@ -65,10 +65,11 @@ type Model struct {
 	newEntryBillable bool
 
 	// Edit entry state
-	editingEntry *harvest.TimeEntry
-	editNotes    string
-	editHours    string
-	editBillable bool
+	editingEntry     *harvest.TimeEntry
+	editNotes        string
+	editHours        string
+	editBillable     bool
+	editCurrentField int // 0=notes, 1=duration, 2=billable
 
 	// UI state
 	loading       bool
@@ -149,13 +150,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorMessage = ""
 		}
 		m.loading = false
-		
+
 		// If there's a running timer, continue ticking
 		if m.hasRunningTimer() {
 			return m, tickCmd()
 		}
 		return m, nil
-	
+
 	case tickMsg:
 		// Check if we have a running timer
 		if m.hasRunningTimer() && m.currentView == ViewList && !m.loading {
@@ -350,6 +351,9 @@ func (m *Model) clearEditState() {
 	m.editNotes = ""
 	m.editHours = ""
 	m.editBillable = true
+	m.editNotesInput = nil
+	m.editDurationInput = nil
+	m.editCurrentField = 0
 }
 
 // renderListView renders the main list view showing time entries for the current date.
@@ -783,21 +787,70 @@ func (m Model) renderEditView() string {
 	// Entry info
 	var info string
 	if m.editingEntry != nil {
-		info = styles.SecondaryText.Render(fmt.Sprintf(
-			"Editing entry from %s",
-			m.currentDate.Format("Monday, January 2, 2006"),
-		))
+		projectInfo := fmt.Sprintf("%s → %s → %s",
+			m.editingEntry.Client.Name,
+			m.editingEntry.Project.Name,
+			m.editingEntry.Task.Name,
+		)
+		info = styles.SecondaryText.Render(projectInfo)
 	}
 
-	// Instructions
-	instructions := styles.SecondaryText.Render("Tab to navigate fields • Enter to save • Esc to cancel")
+	// Build field views
+	var fieldViews []string
 
-	// Fields (placeholder for now)
-	fields := lipgloss.JoinVertical(lipgloss.Left,
-		"Notes: "+m.editNotes,
-		"Duration: "+m.editHours,
-		fmt.Sprintf("Billable: %v", m.editBillable),
-	)
+	// Notes field
+	notesLabel := "Notes:"
+	if m.editCurrentField == 0 {
+		notesLabel = styles.HighlightText.Render("▶ Notes:")
+	} else {
+		notesLabel = styles.SecondaryText.Render("  Notes:")
+	}
+	var notesView string
+	if m.editNotesInput != nil {
+		notesView = m.editNotesInput.View()
+	} else {
+		notesView = m.editNotes
+	}
+	fieldViews = append(fieldViews, lipgloss.JoinHorizontal(lipgloss.Left, notesLabel, " ", notesView))
+
+	// Duration field
+	durationLabel := "Duration:"
+	if m.editCurrentField == 1 {
+		durationLabel = styles.HighlightText.Render("▶ Duration:")
+	} else {
+		durationLabel = styles.SecondaryText.Render("  Duration:")
+	}
+	var durationView string
+	if m.editDurationInput != nil {
+		durationView = m.editDurationInput.View()
+	} else {
+		durationView = m.editHours
+	}
+	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, durationLabel, " ", durationView))
+
+	// Billable field
+	billableLabel := "Billable:"
+	if m.editCurrentField == 2 {
+		billableLabel = styles.HighlightText.Render("▶ Billable:")
+	} else {
+		billableLabel = styles.SecondaryText.Render("  Billable:")
+	}
+	billableStatus := "[ ] Non-billable"
+	if m.editBillable {
+		billableStatus = "[x] Billable"
+	}
+	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, billableLabel, " ", billableStatus))
+
+	fields := lipgloss.JoinVertical(lipgloss.Left, fieldViews...)
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Tab/Shift+Tab to navigate • Space/B to toggle billable • Enter to save • Esc to cancel")
+
+	// Status message if any
+	statusMsg := ""
+	if m.statusMessage != "" {
+		statusMsg = styles.ErrorText.Render(m.statusMessage)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
@@ -807,6 +860,7 @@ func (m Model) renderEditView() string {
 		fields,
 		"",
 		instructions,
+		statusMsg,
 	)
 }
 
@@ -1118,6 +1172,22 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.editNotes = selectedEntry.Notes
 			m.editHours = formatHoursSimple(selectedEntry.Hours)
 			m.editBillable = selectedEntry.IsBillable
+			m.editCurrentField = 0
+
+			// Initialize text inputs for editing
+			notesInput := textinput.New()
+			notesInput.SetValue(selectedEntry.Notes)
+			notesInput.Focus()
+			notesInput.Placeholder = "Enter notes (optional)"
+			notesInput.Width = 50
+			m.editNotesInput = &notesInput
+
+			durationInput := textinput.New()
+			durationInput.SetValue(formatHoursSimple(selectedEntry.Hours))
+			durationInput.Placeholder = "Enter duration (e.g., 1:30)"
+			durationInput.Width = 20
+			m.editDurationInput = &durationInput
+
 			m.currentView = ViewEditEntry
 			return m, nil
 		}
@@ -1292,14 +1362,88 @@ func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg.String() {
 	case "esc":
 		// Return to main list, clearing all edit and entry state
 		m.currentView = ViewList
 		m.clearEditState()
 		return m, nil
+
+	case "tab":
+		// Move to next field
+		m.editCurrentField = (m.editCurrentField + 1) % 3
+		// Update focus based on current field
+		if m.editCurrentField == 0 && m.editNotesInput != nil {
+			m.editNotesInput.Focus()
+			if m.editDurationInput != nil {
+				m.editDurationInput.Blur()
+			}
+		} else if m.editCurrentField == 1 && m.editDurationInput != nil {
+			m.editDurationInput.Focus()
+			if m.editNotesInput != nil {
+				m.editNotesInput.Blur()
+			}
+		} else if m.editCurrentField == 2 {
+			// Billable field - blur both inputs
+			if m.editNotesInput != nil {
+				m.editNotesInput.Blur()
+			}
+			if m.editDurationInput != nil {
+				m.editDurationInput.Blur()
+			}
+		}
+		return m, nil
+
+	case "shift+tab":
+		// Move to previous field
+		m.editCurrentField = (m.editCurrentField - 1 + 3) % 3
+		// Update focus based on current field
+		if m.editCurrentField == 0 && m.editNotesInput != nil {
+			m.editNotesInput.Focus()
+			if m.editDurationInput != nil {
+				m.editDurationInput.Blur()
+			}
+		} else if m.editCurrentField == 1 && m.editDurationInput != nil {
+			m.editDurationInput.Focus()
+			if m.editNotesInput != nil {
+				m.editNotesInput.Blur()
+			}
+		} else if m.editCurrentField == 2 {
+			// Billable field - blur both inputs
+			if m.editNotesInput != nil {
+				m.editNotesInput.Blur()
+			}
+			if m.editDurationInput != nil {
+				m.editDurationInput.Blur()
+			}
+		}
+		return m, nil
+
+	case " ", "b":
+		// Toggle billable if on billable field
+		if m.editCurrentField == 2 {
+			m.editBillable = !m.editBillable
+		}
+		return m, nil
+
+	case "enter":
+		// Save changes
+		return m, m.updateTimeEntry()
+
+	default:
+		// Pass to the appropriate input field if it's focused
+		if m.editCurrentField == 0 && m.editNotesInput != nil {
+			*m.editNotesInput, cmd = m.editNotesInput.Update(msg)
+			m.editNotes = m.editNotesInput.Value()
+		} else if m.editCurrentField == 1 && m.editDurationInput != nil {
+			*m.editDurationInput, cmd = m.editDurationInput.Update(msg)
+			m.editHours = m.editDurationInput.Value()
+		}
 	}
-	return m, nil
+
+	return m, cmd
 }
 
 func (m Model) handleConfirmDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1557,5 +1701,38 @@ func (m Model) createTimeEntry() tea.Cmd {
 		}
 
 		return timeEntryCreatedMsg{entry: entry}
+	}
+}
+
+// updateTimeEntry updates an existing time entry and returns a command
+func (m Model) updateTimeEntry() tea.Cmd {
+	if m.editingEntry == nil {
+		return nil
+	}
+
+	// Validate duration
+	hours, err := domain.ParseDuration(m.editHours)
+	if err != nil {
+		// Return an error message
+		return func() tea.Msg {
+			return timeEntryUpdatedMsg{err: fmt.Errorf("Invalid duration format. Use HH:MM (e.g., 1:30)")}
+		}
+	}
+
+	request := harvest.UpdateTimeEntryRequest{
+		Hours:      &hours,
+		Notes:      &m.editNotes,
+		IsBillable: &m.editBillable,
+	}
+
+	entryID := m.editingEntry.ID
+
+	return func() tea.Msg {
+		entry, err := m.harvestClient.UpdateTimeEntry(entryID, request)
+		if err != nil {
+			return timeEntryUpdatedMsg{err: err}
+		}
+
+		return timeEntryUpdatedMsg{entry: entry}
 	}
 }
