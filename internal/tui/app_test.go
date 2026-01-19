@@ -1554,9 +1554,9 @@ func TestProjectListRecents(t *testing.T) {
 		model.updateProjectList()
 		items := model.projectList.Items()
 
-		// Should have 4 items: 3 recents + 1 non-recent (Backend API)
-		if len(items) != 4 {
-			t.Fatalf("expected 4 items, got %d", len(items))
+		// Should have 5 items: 3 recents + 1 divider + 1 non-recent (Backend API)
+		if len(items) != 5 {
+			t.Fatalf("expected 5 items, got %d", len(items))
 		}
 
 		// Verify recents are at top in order
@@ -1586,8 +1586,13 @@ func TestProjectListRecents(t *testing.T) {
 			}
 		}
 
+		// Item 3 should be the divider
+		if _, ok := items[3].(dividerItem); !ok {
+			t.Fatal("item 3 is not a dividerItem")
+		}
+
 		// Last item should be the non-recent project (Backend API)
-		lastItem, ok := items[3].(projectItem)
+		lastItem, ok := items[4].(projectItem)
 		if !ok {
 			t.Fatal("last item is not a projectItem")
 		}
@@ -1635,8 +1640,8 @@ func TestProjectListRecents(t *testing.T) {
 		model.updateProjectList()
 		items := model.projectList.Items()
 
-		if len(items) != 3 {
-			t.Fatalf("expected 3 items, got %d", len(items))
+		if len(items) != 4 {
+			t.Fatalf("expected 4 items (1 recent + 1 divider + 2 non-recents), got %d", len(items))
 		}
 
 		// First should be the recent
@@ -1648,6 +1653,11 @@ func TestProjectListRecents(t *testing.T) {
 			t.Errorf("expected first item to be recent 'Acme Corp → Website Redesign', got '%s'", firstItem.Title())
 		}
 
+		// Item 1 should be the divider
+		if _, ok := items[1].(dividerItem); !ok {
+			t.Fatal("item 1 is not a dividerItem")
+		}
+
 		// Remaining should be sorted alphabetically by client then project
 		expectedTitles := []string{
 			"Beta Corp → Alpha Project", // Beta comes before Charlie alphabetically
@@ -1655,13 +1665,13 @@ func TestProjectListRecents(t *testing.T) {
 		}
 
 		for i, expected := range expectedTitles {
-			item, ok := items[i+1].(projectItem) // +1 to skip the recent
+			item, ok := items[i+2].(projectItem) // +2 to skip the recent and divider
 			if !ok {
-				t.Fatalf("item %d is not a projectItem", i+1)
+				t.Fatalf("item %d is not a projectItem", i+2)
 			}
 
 			if item.Title() != expected {
-				t.Errorf("item %d: expected title '%s', got '%s'", i+1, expected, item.Title())
+				t.Errorf("item %d: expected title '%s', got '%s'", i+2, expected, item.Title())
 			}
 		}
 	})
@@ -1690,9 +1700,9 @@ func TestProjectListRecents(t *testing.T) {
 		model.updateProjectList()
 		items := model.projectList.Items()
 
-		// Should only have 1 item (the valid recent, stale ignored)
-		if len(items) != 1 {
-			t.Fatalf("expected 1 item, got %d", len(items))
+		// Should have 2 items (the valid recent + divider, stale ignored)
+		if len(items) != 2 {
+			t.Fatalf("expected 2 items (1 recent + 1 divider), got %d", len(items))
 		}
 
 		item, ok := items[0].(projectItem)

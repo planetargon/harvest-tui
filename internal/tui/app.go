@@ -397,6 +397,21 @@ func (i projectItem) Description() string {
 	return "Project ID: " + fmt.Sprintf("%d", i.project.ID)
 }
 
+// dividerItem represents a divider in the selection list.
+type dividerItem struct{}
+
+func (i dividerItem) FilterValue() string {
+	return ""
+}
+
+func (i dividerItem) Title() string {
+	return "─────────────────────────────────────"
+}
+
+func (i dividerItem) Description() string {
+	return ""
+}
+
 // taskItem represents a task in the selection list.
 
 type taskItem struct {
@@ -432,6 +447,7 @@ func newTaskDelegate() list.DefaultDelegate {
 // updateProjectList updates the project list with current projects and recents.
 func (m *Model) updateProjectList() {
 	var items []list.Item
+	recentsAdded := 0
 
 	// Add recents section first
 	if len(m.appState.Recents) > 0 {
@@ -443,9 +459,15 @@ func (m *Model) updateProjectList() {
 						project: pwt.Project,
 						client:  pwt.Project.Client,
 					})
+					recentsAdded++
 					break
 				}
 			}
+		}
+
+		// Add divider after recents only if we actually added any
+		if recentsAdded > 0 {
+			items = append(items, dividerItem{})
 		}
 	}
 
@@ -650,6 +672,13 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Get the selected project
 		selected := m.projectList.SelectedItem()
 		if selected != nil {
+			// Skip divider items
+			if _, ok := selected.(dividerItem); ok {
+				// Move to next item
+				m.projectList.CursorDown()
+				return m, nil
+			}
+
 			if item, ok := selected.(projectItem); ok {
 				m.selectedProject = &item.project
 				// Find tasks for this project
