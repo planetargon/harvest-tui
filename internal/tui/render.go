@@ -2,6 +2,7 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/planetargon/argon-harvest-tui/internal/harvest"
@@ -36,7 +37,17 @@ func (m Model) renderStyledListView() string {
 	totalStr := formatHoursSimple(totalHours)
 
 	// Section header with Tokyo Night styling
-	entriesText := SectionHeaderStyle.Render("Today's Entries")
+	// Check if currentDate is today
+	now := time.Now()
+	isToday := m.currentDate.Year() == now.Year() &&
+		m.currentDate.Month() == now.Month() &&
+		m.currentDate.Day() == now.Day()
+
+	headerText := "Today's Entries"
+	if !isToday {
+		headerText = m.currentDate.Format("Monday's Entries")
+	}
+	entriesText := SectionHeaderStyle.Render(headerText)
 	totalLabelText := TotalLabel.Render("Total: ")
 	totalValue := TotalValue.Render(totalStr)
 	paddingWidth := width - lipgloss.Width(entriesText) - lipgloss.Width(totalLabelText) - lipgloss.Width(totalValue) - 4
