@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step
-Step 13: Define config types in `internal/config/config.go`
+Step 19: Define state types in `internal/state/state.go`
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -16,14 +16,20 @@ Step 13: Define config types in `internal/config/config.go`
 - [x] Step 10: Add Bubble Tea, Bubbles, and Lip Gloss dependencies with pinned versions
 - [x] Step 11: Create `main.go` with minimal Bubble Tea app that displays "Harvest TUI" and quits on `q`
 - [x] Step 12: Verify `make build` and `make run` work
+- [x] Step 13: Define config types in `internal/config/config.go`
+- [x] Step 14: Write tests for config loading (valid file)
+- [x] Step 15: Write tests for config loading (missing file, malformed file, missing fields)
+- [x] Step 16: Implement config loading from `~/.config/harvest-tui/config.toml`
+- [x] Step 17: Integrate config loading into main.go with appropriate error messages
+- [x] Step 18: Verify app shows helpful error when config is missing
 
 ## Blockers
 (none)
 
 ## Notes
-Phase 1 (Project Setup) and Phase 2 (Documentation Setup) completed successfully.
-Phase 3 (Minimal TUI) completed successfully - basic Bubble Tea app working.
-Starting Phase 4: Configuration.
+Phase 1 (Project Setup), Phase 2 (Documentation Setup), and Phase 3 (Minimal TUI) completed successfully.
+Phase 4 (Configuration) completed successfully - config loading with comprehensive tests and error handling.
+Starting Phase 5: State Management.
 
 ---
 
@@ -48,12 +54,12 @@ Starting Phase 4: Configuration.
 - [x] Step 12: Verify `make build` and `make run` work
 
 ### Phase 4: Configuration (Steps 13-18)
-- [ ] Step 13: Define config types in `internal/config/config.go`
-- [ ] Step 14: Write tests for config loading (valid file)
-- [ ] Step 15: Write tests for config loading (missing file, malformed file, missing fields)
-- [ ] Step 16: Implement config loading from `~/.config/harvest-tui/config.toml`
-- [ ] Step 17: Integrate config loading into main.go with appropriate error messages
-- [ ] Step 18: Verify app shows helpful error when config is missing
+- [x] Step 13: Define config types in `internal/config/config.go`
+- [x] Step 14: Write tests for config loading (valid file)
+- [x] Step 15: Write tests for config loading (missing file, malformed file, missing fields)
+- [x] Step 16: Implement config loading from `~/.config/harvest-tui/config.toml`
+- [x] Step 17: Integrate config loading into main.go with appropriate error messages
+- [x] Step 18: Verify app shows helpful error when config is missing
 
 ### Phase 5: State Management (Steps 19-23)
 - [ ] Step 19: Define state types in `internal/state/state.go`
