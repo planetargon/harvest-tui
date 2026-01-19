@@ -162,44 +162,44 @@ Phase 11 (TUI Foundation) in progress - view states enum, app model, keybindings
 - [x] Step 46: Implement project/task aggregation sorted alphabetically by client then project
 
 ### Phase 10: Harvest API Client - Write Operations (Steps 47-54)
-- [ ] Step 47: Write tests for create time entry endpoint (mock HTTP)
-- [ ] Step 48: Implement create time entry (POST /v2/time_entries)
-- [ ] Step 49: Write tests for update time entry endpoint (mock HTTP)
-- [ ] Step 50: Implement update time entry (PATCH /v2/time_entries/{id})
-- [ ] Step 51: Write tests for delete time entry endpoint (mock HTTP)
-- [ ] Step 52: Implement delete time entry (DELETE /v2/time_entries/{id})
-- [ ] Step 53: Write tests for start/stop timer endpoints (mock HTTP)
-- [ ] Step 54: Implement restart timer (PATCH /v2/time_entries/{id}/restart) and stop timer (PATCH /v2/time_entries/{id}/stop)
+- [x] Step 47: Write tests for create time entry endpoint (mock HTTP)
+- [x] Step 48: Implement create time entry (POST /v2/time_entries)
+- [x] Step 49: Write tests for update time entry endpoint (mock HTTP)
+- [x] Step 50: Implement update time entry (PATCH /v2/time_entries/{id})
+- [x] Step 51: Write tests for delete time entry endpoint (mock HTTP)
+- [x] Step 52: Implement delete time entry (DELETE /v2/time_entries/{id})
+- [x] Step 53: Write tests for start/stop timer endpoints (mock HTTP)
+- [x] Step 54: Implement restart timer (PATCH /v2/time_entries/{id}/restart) and stop timer (PATCH /v2/time_entries/{id}/stop)
 
 ### Phase 11: TUI Foundation (Steps 55-60)
-- [ ] Step 55: Define view states enum (list, selectProject, selectTask, editEntry, confirmDelete, help)
-- [ ] Step 56: Define app model with all required state in `internal/tui/app.go`
-- [ ] Step 57: Define keybindings in `internal/tui/keys.go`
-- [ ] Step 58: Define base styles in `internal/tui/styles.go`
-- [ ] Step 59: Write tests for initial model state
-- [ ] Step 60: Implement model initialization
+- [x] Step 55: Define view states enum (list, selectProject, selectTask, editEntry, confirmDelete, help)
+- [x] Step 56: Define app model with all required state in `internal/tui/app.go`
+- [x] Step 57: Define keybindings in `internal/tui/keys.go`
+- [x] Step 58: Define base styles in `internal/tui/styles.go`
+- [x] Step 59: Write tests for initial model state
+- [x] Step 60: Implement model initialization
 
 ### Phase 12: TUI Main List View (Steps 61-68)
-- [ ] Step 61: Write tests for main list view rendering with entries
-- [ ] Step 62: Implement main list view rendering with mock data
-- [ ] Step 63: Write tests for main list view rendering with no entries
-- [ ] Step 64: Implement empty state display
-- [ ] Step 65: Write tests for selection navigation (j/k, up/down)
-- [ ] Step 66: Implement selection navigation
-- [ ] Step 67: Write tests for daily total display
-- [ ] Step 68: Implement daily total in header
+- [x] Step 61: Write tests for main list view rendering with entries
+- [x] Step 62: Implement main list view rendering with mock data
+- [x] Step 63: Write tests for main list view rendering with no entries
+- [x] Step 64: Implement empty state display
+- [x] Step 65: Write tests for selection navigation (j/k, up/down)
+- [x] Step 66: Write tests for key handling and navigation
+- [x] Step 67: Write tests for daily total display
+- [x] Step 68: Implement daily total in header
 
 ### Phase 13: TUI Day Navigation (Steps 69-74)
-- [ ] Step 69: Write tests for day navigation (left arrow = previous day)
-- [ ] Step 70: Write tests for day navigation (right arrow = next day)
-- [ ] Step 71: Write tests for jump to today (t key)
-- [ ] Step 72: Implement day navigation with date state changes
-- [ ] Step 73: Implement loading spinner during data fetch
-- [ ] Step 74: Implement error display for failed fetches
+- [x] Step 69: Write tests for day navigation (left arrow = previous day)
+- [x] Step 70: Write tests for day navigation (right arrow = next day)
+- [x] Step 71: Write tests for jump to today (t key)
+- [x] Step 72: Implement day navigation with date state changes
+- [x] Step 73: Implement loading spinner during data fetch
+- [x] Step 74: Implement error display for failed fetches
 
 ### Phase 14: TUI New Entry - Project Selection (Steps 75-80)
-- [ ] Step 75: Write tests for view transition to project selection on `n`
-- [ ] Step 76: Implement project selection view with Bubbles list
+- [x] Step 75: Write tests for view transition to project selection on `n`
+- [x] Step 76: Implement project selection view with Bubbles list
 - [ ] Step 77: Write tests for project list displaying Client → Project format
 - [ ] Step 78: Implement alphabetically sorted project list
 - [ ] Step 79: Write tests for recents appearing at top of project list
