@@ -2,6 +2,14 @@
 
 A terminal-based time tracking application that connects to the Harvest API v2, allowing users to manage their daily time entries from the command line.
 
+<img width="651" height="383" alt="image" src="https://github.com/user-attachments/assets/0b434def-7c80-4f90-8ce6-6145208e9d6d" />
+
+<img width="654" height="330" alt="image" src="https://github.com/user-attachments/assets/ba1ba147-05a0-4c6a-a028-dd5a1638dad0" />
+
+<img width="296" height="386" alt="image" src="https://github.com/user-attachments/assets/99de0478-bc13-4fb8-9355-0da7334a88c1" />
+
+
+
 ## Installation
 
 ### Prerequisites
