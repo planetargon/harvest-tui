@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step  
-Step 82: Write tests for skipping task selection when recent combo selected
+Step 86: Write tests for notes input view
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -207,10 +207,10 @@ Phase 11 (TUI Foundation) in progress - view states enum, app model, keybindings
 
 ### Phase 15: TUI New Entry - Task Selection (Steps 81-85)
 - [x] Step 81: Write tests for transition to task selection after project chosen
-- [ ] Step 82: Write tests for skipping task selection when recent combo selected
-- [ ] Step 83: Implement task selection view
-- [ ] Step 84: Write tests for escape returning to main list from any point
-- [ ] Step 85: Implement cancel behavior throughout new entry flow
+- [x] Step 82: Write tests for skipping task selection when recent combo selected
+- [x] Step 83: Implement task selection view
+- [x] Step 84: Write tests for escape returning to main list from any point
+- [x] Step 85: Implement cancel behavior throughout new entry flow
 
 ### Phase 16: TUI New Entry - Details (Steps 86-91)
 - [ ] Step 86: Write tests for notes input view

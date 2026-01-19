@@ -203,14 +203,8 @@ func (m Model) View() string {
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global keybindings that work in all views
 	switch msg.String() {
-	case "ctrl+c", "esc":
-		if m.currentView != ViewList {
-			// Return to main list view
-			m.currentView = ViewList
-			m.clearEditState()
-			return m, nil
-		}
-		// Exit application if already in list view
+	case "ctrl+c":
+		// Ctrl+C always quits
 		return m, tea.Quit
 	case "?":
 		if m.currentView == ViewHelp {
@@ -598,6 +592,12 @@ func (m Model) renderHelpView() string {
 func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	keys := DefaultKeyMap()
 
+	// Check for escape/quit first
+	switch msg.String() {
+	case "escape", "q":
+		return m, tea.Quit
+	}
+
 	switch {
 	case key.Matches(msg, keys.Up):
 		if len(m.timeEntries) > 0 && m.selectedEntryIndex > 0 {
@@ -712,6 +712,12 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg.String() {
+	case "escape":
+		// Cancel project selection and return to main list
+		m.currentView = ViewList
+		m.selectedProject = nil
+		m.selectedTask = nil
+		return m, nil
 	case "enter":
 		// Get the selected project
 		selected := m.projectList.SelectedItem()
@@ -822,14 +828,34 @@ func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "escape":
+		// Return to main list, clearing any selections
+		m.currentView = ViewList
+		m.selectedProject = nil
+		m.selectedTask = nil
+		return m, nil
+	}
 	return m, nil
 }
 
 func (m Model) handleConfirmDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "escape", "n":
+		// Cancel deletion and return to main list
+		m.currentView = ViewList
+		return m, nil
+	}
 	return m, nil
 }
 
 func (m Model) handleHelpViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "escape", "q", "?":
+		// Return to main list
+		m.currentView = ViewList
+		return m, nil
+	}
 	return m, nil
 }
 
