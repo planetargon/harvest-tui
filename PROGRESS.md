@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step
-Step 7: Create `README.md` with installation and build instructions (placeholder for usage)
+Step 13: Define config types in `internal/config/config.go`
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -10,12 +10,20 @@ Step 7: Create `README.md` with installation and build instructions (placeholder
 - [x] Step 4: Create `Makefile`
 - [x] Step 5: Create `config.example.toml`
 - [x] Step 6: Create `CLAUDE.md` with agent instructions
+- [x] Step 7: Create `README.md` with installation and build instructions (placeholder for usage)
+- [x] Step 8: Create `PROGRESS.md` with all steps listed
+- [x] Step 9: Initial commit with project scaffolding
+- [x] Step 10: Add Bubble Tea, Bubbles, and Lip Gloss dependencies with pinned versions
+- [x] Step 11: Create `main.go` with minimal Bubble Tea app that displays "Harvest TUI" and quits on `q`
+- [x] Step 12: Verify `make build` and `make run` work
 
 ## Blockers
 (none)
 
 ## Notes
-Phase 1: Project Setup completed successfully. Starting Phase 2: Documentation Setup.
+Phase 1 (Project Setup) and Phase 2 (Documentation Setup) completed successfully.
+Phase 3 (Minimal TUI) completed successfully - basic Bubble Tea app working.
+Starting Phase 4: Configuration.
 
 ---
 
@@ -31,13 +39,13 @@ Phase 1: Project Setup completed successfully. Starting Phase 2: Documentation S
 
 ### Phase 2: Documentation Setup (Steps 7-9)
 - [x] Step 7: Create `README.md` with installation and build instructions (placeholder for usage)
-- [ ] Step 8: Create `PROGRESS.md` with all steps listed
-- [ ] Step 9: Initial commit with project scaffolding
+- [x] Step 8: Create `PROGRESS.md` with all steps listed
+- [x] Step 9: Initial commit with project scaffolding
 
 ### Phase 3: Minimal TUI (Steps 10-12)
-- [ ] Step 10: Add Bubble Tea, Bubbles, and Lip Gloss dependencies with pinned versions
-- [ ] Step 11: Create `main.go` with minimal Bubble Tea app that displays "Harvest TUI" and quits on `q`
-- [ ] Step 12: Verify `make build` and `make run` work
+- [x] Step 10: Add Bubble Tea, Bubbles, and Lip Gloss dependencies with pinned versions
+- [x] Step 11: Create `main.go` with minimal Bubble Tea app that displays "Harvest TUI" and quits on `q`
+- [x] Step 12: Verify `make build` and `make run` work
 
 ### Phase 4: Configuration (Steps 13-18)
 - [ ] Step 13: Define config types in `internal/config/config.go`
