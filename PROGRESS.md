@@ -1,7 +1,7 @@
 # Progress
 
-## Current Step
-Step 63: Implement list view navigation (up/down arrow keys)
+## Current Step  
+Step 67: Write tests for main list view rendering with no entries
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -66,6 +66,7 @@ Step 63: Implement list view navigation (up/down arrow keys)
 - [x] Step 60: Implement model initialization
 - [x] Step 61: Write tests for main list view rendering with entries
 - [x] Step 62: Implement main list view rendering with mock data
+- [x] Step 66: Write tests for key handling and navigation
 
 ## Blockers
 (none)

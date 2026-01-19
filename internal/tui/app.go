@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/planetargon/argon-harvest-tui/internal/config"
@@ -130,6 +131,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.projectsWithTasks = msg.projectsWithTasks
 			m.errorMessage = ""
+		}
+		return m, nil
+
+	case timeEntryStartedMsg:
+		if msg.err != nil {
+			m.statusMessage = "Failed to start timer: " + msg.err.Error()
+		} else {
+			// Update the entry in our local list
+			for i, entry := range m.timeEntries {
+				if entry.ID == msg.entry.ID {
+					m.timeEntries[i] = *msg.entry
+					break
+				}
+			}
+			m.statusMessage = "Timer started successfully"
+		}
+		return m, nil
+
+	case timeEntryStoppedMsg:
+		if msg.err != nil {
+			m.statusMessage = "Failed to stop timer: " + msg.err.Error()
+		} else {
+			// Update the entry in our local list
+			for i, entry := range m.timeEntries {
+				if entry.ID == msg.entry.ID {
+					m.timeEntries[i] = *msg.entry
+					break
+				}
+			}
+			m.statusMessage = "Timer stopped successfully"
 		}
 		return m, nil
 
@@ -350,8 +381,115 @@ func (m Model) renderHelpView() string {
 	return "Help view - TODO: implement"
 }
 
-// Placeholder methods for key handling - these will be implemented in subsequent steps
+// handleListViewKeys handles key presses in the main list view.
 func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keys := DefaultKeyMap()
+
+	switch {
+	case key.Matches(msg, keys.Up):
+		if len(m.timeEntries) > 0 && m.selectedEntryIndex > 0 {
+			m.selectedEntryIndex--
+		}
+		return m, nil
+
+	case key.Matches(msg, keys.Down):
+		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries)-1 {
+			m.selectedEntryIndex++
+		}
+		return m, nil
+
+	case key.Matches(msg, keys.PrevDay):
+		m.currentDate = m.currentDate.AddDate(0, 0, -1)
+		m.selectedEntryIndex = 0
+		m.loading = true
+		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
+
+	case key.Matches(msg, keys.NextDay):
+		m.currentDate = m.currentDate.AddDate(0, 0, 1)
+		m.selectedEntryIndex = 0
+		m.loading = true
+		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
+
+	case key.Matches(msg, keys.Today):
+		m.currentDate = time.Now()
+		m.selectedEntryIndex = 0
+		m.loading = true
+		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
+
+	case key.Matches(msg, keys.New):
+		if len(m.projectsWithTasks) > 0 {
+			m.currentView = ViewSelectProject
+			m.clearEditState()
+			return m, nil
+		} else {
+			m.statusMessage = "No projects available. Please check your Harvest configuration."
+			return m, nil
+		}
+
+	case key.Matches(msg, keys.Edit):
+		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries) {
+			selectedEntry := m.timeEntries[m.selectedEntryIndex]
+			if selectedEntry.IsLocked {
+				m.statusMessage = "Cannot edit locked time entry."
+				return m, nil
+			}
+			m.editingEntry = &selectedEntry
+			m.editNotes = selectedEntry.Notes
+			m.editHours = formatHoursSimple(selectedEntry.Hours)
+			m.editBillable = selectedEntry.IsBillable
+			m.currentView = ViewEditEntry
+			return m, nil
+		}
+		return m, nil
+
+	case key.Matches(msg, keys.Delete):
+		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries) {
+			selectedEntry := m.timeEntries[m.selectedEntryIndex]
+			if selectedEntry.IsLocked {
+				m.statusMessage = "Cannot delete locked time entry."
+				return m, nil
+			}
+			if selectedEntry.IsRunning {
+				m.statusMessage = "Cannot delete running time entry. Stop the timer first."
+				return m, nil
+			}
+			m.editingEntry = &selectedEntry
+			m.currentView = ViewConfirmDelete
+			return m, nil
+		}
+		return m, nil
+
+	case key.Matches(msg, keys.Start):
+		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries) {
+			selectedEntry := m.timeEntries[m.selectedEntryIndex]
+			if selectedEntry.IsLocked {
+				m.statusMessage = "Cannot start locked time entry."
+				return m, nil
+			}
+			if selectedEntry.IsRunning {
+				m.statusMessage = "Timer is already running for this entry."
+				return m, nil
+			}
+			return m, restartTimeEntryCmd(m.harvestClient, selectedEntry.ID)
+		}
+		return m, nil
+
+	case key.Matches(msg, keys.Stop):
+		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries) {
+			selectedEntry := m.timeEntries[m.selectedEntryIndex]
+			if selectedEntry.IsLocked {
+				m.statusMessage = "Cannot stop locked time entry."
+				return m, nil
+			}
+			if !selectedEntry.IsRunning {
+				m.statusMessage = "Timer is not running for this entry."
+				return m, nil
+			}
+			return m, stopTimeEntryCmd(m.harvestClient, selectedEntry.ID)
+		}
+		return m, nil
+	}
+
 	return m, nil
 }
 
@@ -386,6 +524,16 @@ type projectsWithTasksFetchedMsg struct {
 	err               error
 }
 
+type timeEntryStartedMsg struct {
+	entry *harvest.TimeEntry
+	err   error
+}
+
+type timeEntryStoppedMsg struct {
+	entry *harvest.TimeEntry
+	err   error
+}
+
 // Commands for fetching data
 func fetchTimeEntriesCmd(client *harvest.Client, date time.Time) tea.Cmd {
 	return func() tea.Msg {
@@ -410,5 +558,19 @@ func fetchProjectsWithTasksCmd(client *harvest.Client) tea.Cmd {
 
 		projectsWithTasks := harvest.AggregateProjectsWithTasks(projects, taskAssignments)
 		return projectsWithTasksFetchedMsg{projectsWithTasks: projectsWithTasks}
+	}
+}
+
+func restartTimeEntryCmd(client *harvest.Client, entryID int) tea.Cmd {
+	return func() tea.Msg {
+		entry, err := client.RestartTimeEntry(entryID)
+		return timeEntryStartedMsg{entry: entry, err: err}
+	}
+}
+
+func stopTimeEntryCmd(client *harvest.Client, entryID int) tea.Cmd {
+	return func() tea.Msg {
+		entry, err := client.StopTimeEntry(entryID)
+		return timeEntryStoppedMsg{entry: entry, err: err}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/planetargon/argon-harvest-tui/internal/config"
 	"github.com/planetargon/argon-harvest-tui/internal/harvest"
 	"github.com/planetargon/argon-harvest-tui/internal/state"
@@ -405,6 +406,620 @@ func TestMainListViewRendering(t *testing.T) {
 		// Check for error message
 		if !strings.Contains(output, "Failed to fetch data") && !strings.Contains(output, "Error") {
 			t.Error("expected output to show error message")
+		}
+	})
+}
+
+func TestHandleListViewKeys(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model with time entries when up key pressed then moves selection up", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{ID: 1, Notes: "First entry"},
+			{ID: 2, Notes: "Second entry"},
+			{ID: 3, Notes: "Third entry"},
+		}
+		model.selectedEntryIndex = 2
+
+		msg := tea.KeyMsg{Type: tea.KeyUp}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.selectedEntryIndex != 1 {
+			t.Errorf("expected selectedEntryIndex to be 1, got %d", m.selectedEntryIndex)
+		}
+	})
+
+	t.Run("given model at top of list when up key pressed then selection stays at top", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{ID: 1, Notes: "First entry"},
+			{ID: 2, Notes: "Second entry"},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyUp}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.selectedEntryIndex != 0 {
+			t.Errorf("expected selectedEntryIndex to stay at 0, got %d", m.selectedEntryIndex)
+		}
+	})
+
+	t.Run("given model with time entries when down key pressed then moves selection down", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{ID: 1, Notes: "First entry"},
+			{ID: 2, Notes: "Second entry"},
+			{ID: 3, Notes: "Third entry"},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyDown}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.selectedEntryIndex != 1 {
+			t.Errorf("expected selectedEntryIndex to be 1, got %d", m.selectedEntryIndex)
+		}
+	})
+
+	t.Run("given model at bottom of list when down key pressed then selection stays at bottom", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{ID: 1, Notes: "First entry"},
+			{ID: 2, Notes: "Second entry"},
+		}
+		model.selectedEntryIndex = 1
+
+		msg := tea.KeyMsg{Type: tea.KeyDown}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.selectedEntryIndex != 1 {
+			t.Errorf("expected selectedEntryIndex to stay at 1, got %d", m.selectedEntryIndex)
+		}
+	})
+
+	t.Run("given empty time entries when navigation keys pressed then selection stays at 0", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{}
+		model.selectedEntryIndex = 0
+
+		// Test up key
+		msg := tea.KeyMsg{Type: tea.KeyUp}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.selectedEntryIndex != 0 {
+			t.Errorf("expected selectedEntryIndex to stay at 0 with empty entries, got %d", m.selectedEntryIndex)
+		}
+
+		// Test down key
+		msg = tea.KeyMsg{Type: tea.KeyDown}
+		newModel, _ = model.handleListViewKeys(msg)
+		m = newModel.(Model)
+
+		if m.selectedEntryIndex != 0 {
+			t.Errorf("expected selectedEntryIndex to stay at 0 with empty entries, got %d", m.selectedEntryIndex)
+		}
+	})
+}
+
+func TestDateNavigation(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model with current date when left arrow pressed then navigates to previous day", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		startDate := time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
+		model.currentDate = startDate
+		model.selectedEntryIndex = 5
+
+		msg := tea.KeyMsg{Type: tea.KeyLeft}
+		newModel, cmd := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		expectedDate := startDate.AddDate(0, 0, -1)
+		if m.currentDate != expectedDate {
+			t.Errorf("expected currentDate to be %v, got %v", expectedDate, m.currentDate)
+		}
+
+		if m.selectedEntryIndex != 0 {
+			t.Errorf("expected selectedEntryIndex to reset to 0, got %d", m.selectedEntryIndex)
+		}
+
+		if !m.loading {
+			t.Error("expected loading to be true after date navigation")
+		}
+
+		if cmd == nil {
+			t.Error("expected fetch command to be returned")
+		}
+	})
+
+	t.Run("given model with current date when right arrow pressed then navigates to next day", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		startDate := time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
+		model.currentDate = startDate
+		model.selectedEntryIndex = 3
+
+		msg := tea.KeyMsg{Type: tea.KeyRight}
+		newModel, cmd := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		expectedDate := startDate.AddDate(0, 0, 1)
+		if m.currentDate != expectedDate {
+			t.Errorf("expected currentDate to be %v, got %v", expectedDate, m.currentDate)
+		}
+
+		if m.selectedEntryIndex != 0 {
+			t.Errorf("expected selectedEntryIndex to reset to 0, got %d", m.selectedEntryIndex)
+		}
+
+		if !m.loading {
+			t.Error("expected loading to be true after date navigation")
+		}
+
+		if cmd == nil {
+			t.Error("expected fetch command to be returned")
+		}
+	})
+
+	t.Run("given model with any date when 't' pressed then navigates to today", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		pastDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		model.currentDate = pastDate
+		model.selectedEntryIndex = 2
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}}
+		newModel, cmd := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		now := time.Now()
+		if m.currentDate.Year() != now.Year() || m.currentDate.Month() != now.Month() || m.currentDate.Day() != now.Day() {
+			t.Errorf("expected currentDate to be today, got %v", m.currentDate)
+		}
+
+		if m.selectedEntryIndex != 0 {
+			t.Errorf("expected selectedEntryIndex to reset to 0, got %d", m.selectedEntryIndex)
+		}
+
+		if !m.loading {
+			t.Error("expected loading to be true after jumping to today")
+		}
+
+		if cmd == nil {
+			t.Error("expected fetch command to be returned")
+		}
+	})
+}
+
+func TestNewEntryAction(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model with projects when 'n' pressed then transitions to project selection", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{ID: 1, Name: "Test Project"},
+				Tasks:   []harvest.Task{{ID: 1, Name: "Test Task"}},
+			},
+		}
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewSelectProject {
+			t.Errorf("expected currentView to be ViewSelectProject, got %v", m.currentView)
+		}
+
+		// Verify edit state is cleared
+		if m.selectedProject != nil || m.selectedTask != nil || m.newEntryNotes != "" || m.newEntryHours != "" {
+			t.Error("expected edit state to be cleared when starting new entry")
+		}
+	})
+
+	t.Run("given model with no projects when 'n' pressed then shows error message", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.projectsWithTasks = []harvest.ProjectWithTasks{}
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
+		}
+
+		if m.statusMessage == "" {
+			t.Error("expected status message to be set when no projects available")
+		}
+
+		if !strings.Contains(m.statusMessage, "No projects available") {
+			t.Errorf("expected status message about no projects, got '%s'", m.statusMessage)
+		}
+	})
+}
+
+func TestEditEntryAction(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model with unlocked entry when 'e' pressed then transitions to edit view", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:         1,
+				Notes:      "Test notes",
+				Hours:      2.5,
+				IsBillable: true,
+				IsLocked:   false,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewEditEntry {
+			t.Errorf("expected currentView to be ViewEditEntry, got %v", m.currentView)
+		}
+
+		if m.editingEntry == nil {
+			t.Error("expected editingEntry to be set")
+		}
+
+		if m.editNotes != "Test notes" {
+			t.Errorf("expected editNotes to be 'Test notes', got '%s'", m.editNotes)
+		}
+
+		if m.editHours != "2:30" {
+			t.Errorf("expected editHours to be '2:30', got '%s'", m.editHours)
+		}
+
+		if m.editBillable != true {
+			t.Error("expected editBillable to be true")
+		}
+	})
+
+	t.Run("given model with locked entry when 'e' pressed then shows error message", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:       1,
+				IsLocked: true,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
+		}
+
+		if !strings.Contains(m.statusMessage, "Cannot edit locked") {
+			t.Errorf("expected status message about locked entry, got '%s'", m.statusMessage)
+		}
+	})
+
+	t.Run("given model with no entries when 'e' pressed then nothing happens", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{}
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
+		}
+	})
+}
+
+func TestDeleteEntryAction(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model with unlocked stopped entry when 'd' pressed then transitions to confirm delete", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:        1,
+				IsLocked:  false,
+				IsRunning: false,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewConfirmDelete {
+			t.Errorf("expected currentView to be ViewConfirmDelete, got %v", m.currentView)
+		}
+
+		if m.editingEntry == nil {
+			t.Error("expected editingEntry to be set for delete confirmation")
+		}
+	})
+
+	t.Run("given model with locked entry when 'd' pressed then shows error message", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:        1,
+				IsLocked:  true,
+				IsRunning: false,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
+		}
+
+		if !strings.Contains(m.statusMessage, "Cannot delete locked") {
+			t.Errorf("expected status message about locked entry, got '%s'", m.statusMessage)
+		}
+	})
+
+	t.Run("given model with running entry when 'd' pressed then shows error message", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:        1,
+				IsLocked:  false,
+				IsRunning: true,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
+		}
+
+		if !strings.Contains(m.statusMessage, "Cannot delete running") {
+			t.Errorf("expected status message about running entry, got '%s'", m.statusMessage)
+		}
+	})
+}
+
+func TestStartStopTimerActions(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model with stopped unlocked entry when 's' pressed then starts timer", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:        1,
+				IsLocked:  false,
+				IsRunning: false,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+		newModel, cmd := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if cmd == nil {
+			t.Error("expected start timer command to be returned")
+		}
+
+		// Model should remain in ViewList
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
+		}
+	})
+
+	t.Run("given model with running entry when 's' pressed then shows already running message", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:        1,
+				IsLocked:  false,
+				IsRunning: true,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if !strings.Contains(m.statusMessage, "already running") {
+			t.Errorf("expected status message about already running, got '%s'", m.statusMessage)
+		}
+	})
+
+	t.Run("given model with locked entry when 's' pressed then shows locked message", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:        1,
+				IsLocked:  true,
+				IsRunning: false,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if !strings.Contains(m.statusMessage, "Cannot start locked") {
+			t.Errorf("expected status message about locked entry, got '%s'", m.statusMessage)
+		}
+	})
+
+	t.Run("given model with running unlocked entry when 'S' pressed then stops timer", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:        1,
+				IsLocked:  false,
+				IsRunning: true,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}}
+		newModel, cmd := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if cmd == nil {
+			t.Error("expected stop timer command to be returned")
+		}
+
+		// Model should remain in ViewList
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to stay ViewList, got %v", m.currentView)
+		}
+	})
+
+	t.Run("given model with stopped entry when 'S' pressed then shows not running message", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:        1,
+				IsLocked:  false,
+				IsRunning: false,
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}}
+		newModel, _ := model.handleListViewKeys(msg)
+		m := newModel.(Model)
+
+		if !strings.Contains(m.statusMessage, "not running") {
+			t.Errorf("expected status message about not running, got '%s'", m.statusMessage)
+		}
+	})
+}
+
+func TestGlobalKeyHandling(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model in list view when escape pressed then quits application", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.currentView = ViewList
+
+		msg := tea.KeyMsg{Type: tea.KeyEsc}
+		_, cmd := model.Update(msg)
+
+		// Should return quit command
+		if cmd == nil {
+			t.Error("expected quit command to be returned")
+		}
+	})
+
+	t.Run("given model in edit view when escape pressed then returns to list view", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.currentView = ViewEditEntry
+		model.selectedProject = &harvest.Project{ID: 1}
+		model.newEntryNotes = "test"
+
+		msg := tea.KeyMsg{Type: tea.KeyEsc}
+		newModel, _ := model.Update(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to be ViewList, got %v", m.currentView)
+		}
+
+		// Edit state should be cleared
+		if m.selectedProject != nil || m.newEntryNotes != "" {
+			t.Error("expected edit state to be cleared on escape")
+		}
+	})
+
+	t.Run("given model in list view when '?' pressed then shows help", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.currentView = ViewList
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
+		newModel, _ := model.Update(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewHelp {
+			t.Errorf("expected currentView to be ViewHelp, got %v", m.currentView)
+		}
+	})
+
+	t.Run("given model in help view when '?' pressed then returns to list", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.currentView = ViewHelp
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
+		newModel, _ := model.Update(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Errorf("expected currentView to be ViewList, got %v", m.currentView)
 		}
 	})
 }
