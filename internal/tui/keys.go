@@ -17,10 +17,10 @@ type KeyMap struct {
 	Today   key.Binding
 
 	// Time entry actions
-	New         key.Binding
-	Edit        key.Binding
-	Delete      key.Binding
-	StartStop   key.Binding
+	New       key.Binding
+	Edit      key.Binding
+	Delete    key.Binding
+	StartStop key.Binding
 
 	// Selection and confirmation
 	Select  key.Binding

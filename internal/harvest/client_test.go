@@ -526,7 +526,7 @@ func TestFetchTimeEntries(t *testing.T) {
 			if r.URL.Query().Get("to") != "2025-01-15" {
 				t.Errorf("expected to=2025-01-15, got %s", r.URL.Query().Get("to"))
 			}
-			// Verify user_id is included  
+			// Verify user_id is included
 			if r.URL.Query().Get("user_id") != "123" {
 				t.Errorf("expected user_id=123, got %s", r.URL.Query().Get("user_id"))
 			}

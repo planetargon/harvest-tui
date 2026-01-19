@@ -118,7 +118,7 @@ func (m Model) renderStyledListView() string {
 // wrapInStyledBox wraps content in a styled box border.
 func (m Model) wrapInStyledBox(content string, width int) string {
 	borderStyle := lipgloss.NewStyle().Foreground(BorderColor)
-	
+
 	// Top border
 	top := "┌" + strings.Repeat("─", width-2) + "┐"
 

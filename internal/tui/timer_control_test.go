@@ -145,7 +145,6 @@ func TestTimerControl(t *testing.T) {
 		}
 	})
 
-
 	t.Run("given timer start succeeds when message received then updates entry", func(t *testing.T) {
 		model := NewModel(cfg, client, appState)
 		model.timeEntries = []harvest.TimeEntry{
