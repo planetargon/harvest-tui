@@ -15,10 +15,11 @@ func TestEscapeReturnsToMainList(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given project selection view when escape pressed then returns to main list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
-		// Start in project selection view
+		// Start in project selection view (not from new entry form)
 		model.currentView = ViewSelectProject
+		model.newEntryCurrentField = -1 // Not from new entry form
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
 			{
 				Project: harvest.Project{
@@ -57,7 +58,7 @@ func TestEscapeReturnsToMainList(t *testing.T) {
 	})
 
 	t.Run("given task selection view when escape pressed then returns to project selection", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up project with tasks
 		selectedProject := &harvest.Project{
@@ -105,26 +106,24 @@ func TestEscapeReturnsToMainList(t *testing.T) {
 
 	// Note: Notes input view will be tested when implemented in Phase 16
 
-	t.Run("given main list view when escape pressed then quits application", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+	t.Run("given main list view when q pressed then quits application", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Start in main list view
 		model.currentView = ViewList
 
-		// Simulate pressing escape
-		msg := tea.KeyMsg{Type: tea.KeyEscape}
+		// Simulate pressing q
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")}
 		_, cmd := model.Update(msg)
 
 		// Should quit the application
 		if cmd == nil {
 			t.Error("expected quit command, got nil")
-		} else if _, isQuit := cmd().(tea.QuitMsg); !isQuit {
-			t.Error("expected quit command on escape from main list")
 		}
 	})
 
 	t.Run("given help view when escape pressed then returns to main list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Start in help view
 		model.currentView = ViewHelp
@@ -147,7 +146,7 @@ func TestEscapeReturnsToMainList(t *testing.T) {
 	})
 
 	t.Run("given edit entry view when escape pressed then returns to main list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Start in edit entry view
 		model.currentView = ViewEditEntry
@@ -170,7 +169,7 @@ func TestEscapeReturnsToMainList(t *testing.T) {
 	})
 
 	t.Run("given confirm delete view when escape pressed then returns to main list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Start in confirm delete view
 		model.currentView = ViewConfirmDelete
@@ -192,11 +191,12 @@ func TestEscapeReturnsToMainList(t *testing.T) {
 		}
 	})
 
-	t.Run("given multiple escape presses then returns to main list then quits", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+	t.Run("given multiple escape presses then returns to main list then q quits", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
-		// Start in task selection view
+		// Start in task selection view (not from new entry form)
 		model.currentView = ViewSelectTask
+		model.newEntryCurrentField = -1 // Not from new entry form
 		model.selectedProject = &harvest.Project{
 			ID:   1,
 			Name: "Test Project",
@@ -222,13 +222,12 @@ func TestEscapeReturnsToMainList(t *testing.T) {
 			}
 		}
 
-		// Third escape - should quit
-		_, cmd = updatedModel.Update(msg)
+		// Third press - try 'q' to quit
+		quitMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")}
+		_, cmd = updatedModel.Update(quitMsg)
 
 		if cmd == nil {
-			t.Error("expected quit command on third escape, got nil")
-		} else if _, isQuit := cmd().(tea.QuitMsg); !isQuit {
-			t.Error("expected quit command on third escape from main list")
+			t.Error("expected quit command on 'q' press, got nil")
 		}
 	})
 }

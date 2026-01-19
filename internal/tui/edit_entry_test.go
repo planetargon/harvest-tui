@@ -17,7 +17,7 @@ func TestEditEntry(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given entry selected when edit key pressed then transitions to edit view", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -62,7 +62,7 @@ func TestEditEntry(t *testing.T) {
 	})
 
 	t.Run("given locked entry when edit key pressed then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -95,7 +95,7 @@ func TestEditEntry(t *testing.T) {
 	})
 
 	t.Run("given running entry when edit key pressed then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -123,7 +123,7 @@ func TestEditEntry(t *testing.T) {
 	})
 
 	t.Run("given edit view when escape pressed then returns to main list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewEditEntry
 		model.editingEntry = &harvest.TimeEntry{ID: 1}
 		model.editNotes = "Modified notes"
@@ -151,7 +151,7 @@ func TestEditEntry(t *testing.T) {
 	})
 
 	t.Run("given edit view when valid changes saved then updates entry", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewEditEntry
 		model.editingEntry = &harvest.TimeEntry{
 			ID:    1,
@@ -176,7 +176,7 @@ func TestEditEntry(t *testing.T) {
 	})
 
 	t.Run("given edit view when invalid duration entered then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewEditEntry
 		model.editingEntry = &harvest.TimeEntry{ID: 1}
 
@@ -194,7 +194,7 @@ func TestEditEntry(t *testing.T) {
 	})
 
 	t.Run("given entry update succeeds when message received then updates list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:    1,
@@ -233,7 +233,7 @@ func TestEditEntry(t *testing.T) {
 	})
 
 	t.Run("given entry update fails when message received then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Simulate failed update
 		msg := timeEntryUpdatedMsg{err: fmt.Errorf("API error")}

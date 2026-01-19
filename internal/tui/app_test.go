@@ -24,7 +24,7 @@ func TestNewModel(t *testing.T) {
 			Recents: []state.RecentEntry{},
 		}
 
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Test initial view state
 		if model.currentView != ViewList {
@@ -133,7 +133,7 @@ func TestModelInit(t *testing.T) {
 		client := harvest.NewClient("12345", "test-token")
 		appState := &state.State{}
 
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		cmd := model.Init()
 
 		// Since we're returning tea.Batch(), we can't easily test the exact commands
@@ -155,7 +155,7 @@ func TestClearEditState(t *testing.T) {
 		client := harvest.NewClient("12345", "test-token")
 		appState := &state.State{}
 
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up some edit state
 		model.selectedProject = &harvest.Project{ID: 1, Name: "Test Project"}
@@ -213,7 +213,7 @@ func TestViewStateTransitions(t *testing.T) {
 		client := harvest.NewClient("12345", "test-token")
 		appState := &state.State{}
 
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Test initial state
 		if model.currentView != ViewList {
@@ -259,7 +259,7 @@ func TestMainListViewRendering(t *testing.T) {
 		client := harvest.NewClient("12345", "test-token")
 		appState := &state.State{}
 
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Add mock time entries
 		model.timeEntries = []harvest.TimeEntry{
@@ -352,7 +352,7 @@ func TestMainListViewRendering(t *testing.T) {
 		client := harvest.NewClient("12345", "test-token")
 		appState := &state.State{}
 
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentDate = time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
 
 		output := model.View()
@@ -377,7 +377,7 @@ func TestMainListViewRendering(t *testing.T) {
 		client := harvest.NewClient("12345", "test-token")
 		appState := &state.State{}
 
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.loading = true
 
 		output := model.View()
@@ -398,7 +398,7 @@ func TestMainListViewRendering(t *testing.T) {
 		client := harvest.NewClient("12345", "test-token")
 		appState := &state.State{}
 
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.errorMessage = "Failed to fetch data"
 
 		output := model.View()
@@ -421,7 +421,7 @@ func TestHandleListViewKeys(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given model with time entries when up key pressed then moves selection up", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{ID: 1, Notes: "First entry"},
 			{ID: 2, Notes: "Second entry"},
@@ -439,7 +439,7 @@ func TestHandleListViewKeys(t *testing.T) {
 	})
 
 	t.Run("given model at top of list when up key pressed then selection stays at top", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{ID: 1, Notes: "First entry"},
 			{ID: 2, Notes: "Second entry"},
@@ -456,7 +456,7 @@ func TestHandleListViewKeys(t *testing.T) {
 	})
 
 	t.Run("given model with time entries when down key pressed then moves selection down", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{ID: 1, Notes: "First entry"},
 			{ID: 2, Notes: "Second entry"},
@@ -474,7 +474,7 @@ func TestHandleListViewKeys(t *testing.T) {
 	})
 
 	t.Run("given model at bottom of list when down key pressed then selection stays at bottom", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{ID: 1, Notes: "First entry"},
 			{ID: 2, Notes: "Second entry"},
@@ -491,7 +491,7 @@ func TestHandleListViewKeys(t *testing.T) {
 	})
 
 	t.Run("given empty time entries when navigation keys pressed then selection stays at 0", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{}
 		model.selectedEntryIndex = 0
 
@@ -526,7 +526,7 @@ func TestDateNavigation(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given model with current date when left arrow pressed then navigates to previous day", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		startDate := time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
 		model.currentDate = startDate
 		model.selectedEntryIndex = 5
@@ -554,7 +554,7 @@ func TestDateNavigation(t *testing.T) {
 	})
 
 	t.Run("given model with current date when right arrow pressed then navigates to next day", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		startDate := time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
 		model.currentDate = startDate
 		model.selectedEntryIndex = 3
@@ -582,7 +582,7 @@ func TestDateNavigation(t *testing.T) {
 	})
 
 	t.Run("given model with any date when 't' pressed then navigates to today", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		pastDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 		model.currentDate = pastDate
 		model.selectedEntryIndex = 2
@@ -620,8 +620,8 @@ func TestNewEntryAction(t *testing.T) {
 	client := harvest.NewClient("12345", "test-token")
 	appState := &state.State{}
 
-	t.Run("given model with projects when 'n' pressed then transitions to project selection", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+	t.Run("given model with projects when 'n' pressed then transitions to new entry form", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
 			{
 				Project: harvest.Project{ID: 1, Name: "Test Project"},
@@ -633,18 +633,18 @@ func TestNewEntryAction(t *testing.T) {
 		newModel, _ := model.handleListViewKeys(msg)
 		m := newModel.(Model)
 
-		if m.currentView != ViewSelectProject {
-			t.Errorf("expected currentView to be ViewSelectProject, got %v", m.currentView)
+		if m.currentView != ViewNewEntry {
+			t.Errorf("expected currentView to be ViewNewEntry, got %v", m.currentView)
 		}
 
-		// Verify edit state is cleared
-		if m.selectedProject != nil || m.selectedTask != nil || m.newEntryNotes != "" || m.newEntryHours != "" {
-			t.Error("expected edit state to be cleared when starting new entry")
+		// Verify edit state is cleared and form is initialized
+		if m.selectedProject != nil || m.selectedTask != nil || m.newEntryNotes != "" || m.newEntryHours != "0:00" {
+			t.Error("expected edit state to be cleared and form initialized when starting new entry")
 		}
 	})
 
 	t.Run("given model with no projects when 'n' pressed then shows error message", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.projectsWithTasks = []harvest.ProjectWithTasks{}
 
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
@@ -676,7 +676,7 @@ func TestEditEntryAction(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given model with unlocked entry when 'e' pressed then transitions to edit view", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:         1,
@@ -714,7 +714,7 @@ func TestEditEntryAction(t *testing.T) {
 	})
 
 	t.Run("given model with locked entry when 'e' pressed then shows error message", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:       1,
@@ -737,7 +737,7 @@ func TestEditEntryAction(t *testing.T) {
 	})
 
 	t.Run("given model with no entries when 'e' pressed then nothing happens", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{}
 
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
@@ -761,7 +761,7 @@ func TestDeleteEntryAction(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given model with unlocked stopped entry when 'd' pressed then transitions to confirm delete", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -785,7 +785,7 @@ func TestDeleteEntryAction(t *testing.T) {
 	})
 
 	t.Run("given model with locked entry when 'd' pressed then shows error message", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -809,7 +809,7 @@ func TestDeleteEntryAction(t *testing.T) {
 	})
 
 	t.Run("given model with running entry when 'd' pressed then shows error message", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -844,7 +844,7 @@ func TestStartStopTimerActions(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given model with stopped unlocked entry when 's' pressed then starts timer", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -869,7 +869,7 @@ func TestStartStopTimerActions(t *testing.T) {
 	})
 
 	t.Run("given model with running entry when 's' pressed then stops timer", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -894,7 +894,7 @@ func TestStartStopTimerActions(t *testing.T) {
 	})
 
 	t.Run("given model with locked entry when 's' pressed then shows locked message", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -914,7 +914,7 @@ func TestStartStopTimerActions(t *testing.T) {
 	})
 
 	t.Run("given model with locked running entry when 's' pressed then shows locked message", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -945,11 +945,11 @@ func TestGlobalKeyHandling(t *testing.T) {
 	client := harvest.NewClient("12345", "test-token")
 	appState := &state.State{}
 
-	t.Run("given model in list view when escape pressed then quits application", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+	t.Run("given model in list view when q pressed then quits application", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 
-		msg := tea.KeyMsg{Type: tea.KeyEscape}
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")}
 		_, cmd := model.Update(msg)
 
 		// Should return quit command
@@ -959,7 +959,7 @@ func TestGlobalKeyHandling(t *testing.T) {
 	})
 
 	t.Run("given model in edit view when escape pressed then returns to list view", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewEditEntry
 		model.selectedProject = &harvest.Project{ID: 1}
 		model.newEntryNotes = "test"
@@ -979,7 +979,7 @@ func TestGlobalKeyHandling(t *testing.T) {
 	})
 
 	t.Run("given model in list view when '?' pressed then shows help", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
@@ -992,7 +992,7 @@ func TestGlobalKeyHandling(t *testing.T) {
 	})
 
 	t.Run("given model in help view when '?' pressed then returns to list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewHelp
 
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
@@ -1016,7 +1016,7 @@ func TestDailyTotalDisplay(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given model with multiple time entries when rendered then displays correct daily total", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:         1,
@@ -1058,7 +1058,7 @@ func TestDailyTotalDisplay(t *testing.T) {
 	})
 
 	t.Run("given model with no time entries when rendered then displays zero daily total", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{}
 		model.currentDate = time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
 
@@ -1075,7 +1075,7 @@ func TestDailyTotalDisplay(t *testing.T) {
 	})
 
 	t.Run("given model with fractional hours when rendered then displays correct time format", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:    1,
@@ -1097,7 +1097,7 @@ func TestDailyTotalDisplay(t *testing.T) {
 	})
 
 	t.Run("given model with large total when rendered then displays hours correctly", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:    1,
@@ -1130,7 +1130,7 @@ func TestProjectSelectionView(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given model with projects when project list rendered then displays Client → Project format", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
 			{
 				Project: harvest.Project{
@@ -1192,7 +1192,7 @@ func TestProjectSelectionView(t *testing.T) {
 	})
 
 	t.Run("given model with recents when project list rendered then shows recents at top", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up projects
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -1255,7 +1255,7 @@ func TestProjectSelectionView(t *testing.T) {
 	})
 
 	t.Run("given projects when updateProjectList called then list contains correct items with proper descriptions", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
 			{
 				Project: harvest.Project{
@@ -1305,7 +1305,7 @@ func TestProjectSelectionView(t *testing.T) {
 	})
 
 	t.Run("given empty projects list when updateProjectList called then list is empty", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.projectsWithTasks = []harvest.ProjectWithTasks{}
 
 		model.updateProjectList()
@@ -1327,7 +1327,7 @@ func TestProjectListSorting(t *testing.T) {
 	appState := &state.State{Recents: []state.RecentEntry{}}
 
 	t.Run("given model with multiple projects when updateProjectList called then projects are sorted alphabetically by client then project", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Add projects in unsorted order - should be sorted after updateProjectList
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -1411,7 +1411,7 @@ func TestProjectListSorting(t *testing.T) {
 	})
 
 	t.Run("given model with projects from same client when updateProjectList called then projects are sorted by project name", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Add projects from same client in unsorted order
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -1531,7 +1531,7 @@ func TestProjectListRecents(t *testing.T) {
 				{ClientID: 300, ProjectID: 3, TaskID: 3}, // Charlie → Desktop
 			},
 		}
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up projects in different order than recents
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -1625,7 +1625,7 @@ func TestProjectListRecents(t *testing.T) {
 				{ClientID: 100, ProjectID: 1, TaskID: 1}, // Acme → Website
 			},
 		}
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up projects with some in recents, some not
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -1701,7 +1701,7 @@ func TestProjectListRecents(t *testing.T) {
 				{ClientID: 999, ProjectID: 999, TaskID: 999}, // Stale recent (project doesn't exist)
 			},
 		}
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Only provide the valid project
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -1735,7 +1735,7 @@ func TestProjectListRecents(t *testing.T) {
 
 	t.Run("given model with no recents when updateProjectList called then projects are sorted alphabetically", func(t *testing.T) {
 		appState := &state.State{Recents: []state.RecentEntry{}} // No recents
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
 			{

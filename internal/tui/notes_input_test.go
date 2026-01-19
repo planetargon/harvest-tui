@@ -16,7 +16,7 @@ func TestNotesInputView(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given task selected when transitioning to notes input then shows notes input view", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up selected project and task
 		model.selectedProject = &harvest.Project{
@@ -50,7 +50,7 @@ func TestNotesInputView(t *testing.T) {
 	})
 
 	t.Run("given notes input view when typing then updates input field", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.selectedProject = &harvest.Project{ID: 1, Name: "Test Project"}
 		model.selectedTask = &harvest.Task{ID: 1, Name: "Test Task"}
 
@@ -77,7 +77,7 @@ func TestNotesInputView(t *testing.T) {
 	})
 
 	t.Run("given notes input view when enter pressed then transitions to duration input", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.selectedProject = &harvest.Project{ID: 1, Name: "Test Project"}
 		model.selectedTask = &harvest.Task{ID: 1, Name: "Test Task"}
 		notesInput := textinput.New()
@@ -101,7 +101,7 @@ func TestNotesInputView(t *testing.T) {
 	})
 
 	t.Run("given notes input view when escape pressed then returns to main list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.selectedProject = &harvest.Project{ID: 1, Name: "Test Project"}
 		model.selectedTask = &harvest.Task{ID: 1, Name: "Test Task"}
 		notesInput := textinput.New()
@@ -127,7 +127,7 @@ func TestNotesInputView(t *testing.T) {
 	})
 
 	t.Run("given duration input view when valid duration entered then stores hours", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.selectedProject = &harvest.Project{ID: 1, Name: "Test Project"}
 		model.selectedTask = &harvest.Task{ID: 1, Name: "Test Task"}
 		durationInput := textinput.New()
@@ -151,7 +151,7 @@ func TestNotesInputView(t *testing.T) {
 	})
 
 	t.Run("given duration input view when invalid duration entered then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.selectedProject = &harvest.Project{ID: 1, Name: "Test Project"}
 		model.selectedTask = &harvest.Task{ID: 1, Name: "Test Task"}
 		durationInput := textinput.New()
@@ -175,7 +175,7 @@ func TestNotesInputView(t *testing.T) {
 	})
 
 	t.Run("given duration input view when escape pressed then returns to notes input", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.selectedProject = &harvest.Project{ID: 1, Name: "Test Project"}
 		model.selectedTask = &harvest.Task{ID: 1, Name: "Test Task"}
 		durationInput := textinput.New()

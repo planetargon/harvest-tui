@@ -47,7 +47,7 @@ func main() {
 	fmt.Printf("Starting Harvest TUI...\n")
 
 	// Initialize TUI model
-	model := tui.NewModel(cfg, harvestClient, appState)
+	model := tui.NewModel(cfg, harvestClient, appState, user)
 
 	// Create and run the program
 	p := tea.NewProgram(model, tea.WithAltScreen())

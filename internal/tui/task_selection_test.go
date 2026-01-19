@@ -15,7 +15,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given project with multiple tasks when project selected then transitions to task selection view", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up project with multiple tasks
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -61,7 +61,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 	})
 
 	t.Run("given project with single task when project selected then skips task selection", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up project with single task
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -111,7 +111,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 	})
 
 	t.Run("given divider item when enter pressed then moves to next item", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up state with recents to ensure divider is present
 		model.appState.Recents = []state.RecentEntry{
@@ -167,7 +167,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 	})
 
 	t.Run("given project with no tasks when project selected then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up project with no tasks (edge case)
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
@@ -212,7 +212,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 	})
 
 	t.Run("given recent combo selected when enter pressed then skips task selection", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up state with a recent that has all IDs (client, project, task)
 		model.appState.Recents = []state.RecentEntry{
@@ -269,7 +269,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 	})
 
 	t.Run("given recent with non-existent task when selected then shows task selection", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up state with a recent that has a task ID that no longer exists
 		model.appState.Recents = []state.RecentEntry{

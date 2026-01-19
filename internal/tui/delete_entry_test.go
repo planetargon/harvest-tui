@@ -16,7 +16,7 @@ func TestDeleteEntry(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given entry selected when delete key pressed then transitions to confirm delete view", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -49,7 +49,7 @@ func TestDeleteEntry(t *testing.T) {
 	})
 
 	t.Run("given locked entry when delete key pressed then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -77,7 +77,7 @@ func TestDeleteEntry(t *testing.T) {
 	})
 
 	t.Run("given running entry when delete key pressed then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -105,7 +105,7 @@ func TestDeleteEntry(t *testing.T) {
 	})
 
 	t.Run("given confirm delete view when 'y' pressed then deletes entry", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewConfirmDelete
 		model.editingEntry = &harvest.TimeEntry{
 			ID:    1,
@@ -124,7 +124,7 @@ func TestDeleteEntry(t *testing.T) {
 	})
 
 	t.Run("given confirm delete view when 'n' pressed then cancels deletion", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewConfirmDelete
 		model.editingEntry = &harvest.TimeEntry{
 			ID:    1,
@@ -153,7 +153,7 @@ func TestDeleteEntry(t *testing.T) {
 	})
 
 	t.Run("given confirm delete view when escape pressed then cancels deletion", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewConfirmDelete
 		model.editingEntry = &harvest.TimeEntry{
 			ID:    1,
@@ -177,7 +177,7 @@ func TestDeleteEntry(t *testing.T) {
 	})
 
 	t.Run("given entry deletion succeeds when message received then removes from list", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{ID: 1, Hours: 1.5, Notes: "Entry 1"},
 			{ID: 2, Hours: 2.0, Notes: "Entry 2"},
@@ -212,7 +212,7 @@ func TestDeleteEntry(t *testing.T) {
 	})
 
 	t.Run("given entry deletion fails when message received then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Simulate failed deletion
 		msg := timeEntryDeletedMsg{err: fmt.Errorf("API error")}

@@ -16,7 +16,7 @@ func TestTimerControl(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given stopped entry when start key pressed then starts timer", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -40,7 +40,7 @@ func TestTimerControl(t *testing.T) {
 	})
 
 	t.Run("given running entry when stop key pressed then stops timer", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -64,7 +64,7 @@ func TestTimerControl(t *testing.T) {
 	})
 
 	t.Run("given locked entry when start key pressed then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -93,7 +93,7 @@ func TestTimerControl(t *testing.T) {
 	})
 
 	t.Run("given locked entry when stop key pressed then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -122,7 +122,7 @@ func TestTimerControl(t *testing.T) {
 	})
 
 	t.Run("given already running entry when start key pressed then stops timer", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
@@ -146,7 +146,7 @@ func TestTimerControl(t *testing.T) {
 	})
 
 	t.Run("given timer start succeeds when message received then updates entry", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -179,7 +179,7 @@ func TestTimerControl(t *testing.T) {
 	})
 
 	t.Run("given timer stop succeeds when message received then updates entry", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -217,7 +217,7 @@ func TestTimerControl(t *testing.T) {
 	})
 
 	t.Run("given timer start fails when message received then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Simulate failed timer start
 		msg := timeEntryStartedMsg{err: fmt.Errorf("API error")}
@@ -230,7 +230,7 @@ func TestTimerControl(t *testing.T) {
 	})
 
 	t.Run("given timer stop fails when message received then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Simulate failed timer stop
 		msg := timeEntryStoppedMsg{err: fmt.Errorf("API error")}

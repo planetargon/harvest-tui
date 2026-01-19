@@ -17,7 +17,7 @@ func TestEntryCreation(t *testing.T) {
 	appState := &state.State{}
 
 	t.Run("given billable toggle view when enter pressed then creates time entry", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up state for entry creation
 		model.selectedProject = &harvest.Project{
@@ -49,7 +49,7 @@ func TestEntryCreation(t *testing.T) {
 	})
 
 	t.Run("given entry creation succeeds when message received then returns to list view", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewBillableToggle
 		model.selectedProject = &harvest.Project{ID: 1}
 		model.selectedTask = &harvest.Task{ID: 1}
@@ -94,7 +94,7 @@ func TestEntryCreation(t *testing.T) {
 	})
 
 	t.Run("given entry creation fails when message received then shows error", func(t *testing.T) {
-		model := NewModel(cfg, client, appState)
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewBillableToggle
 
 		// Simulate failed entry creation
@@ -116,7 +116,7 @@ func TestEntryCreation(t *testing.T) {
 		// Create a temporary state
 		testState := &state.State{}
 
-		model := NewModel(cfg, client, testState)
+		model := NewModel(cfg, client, testState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.selectedProject = &harvest.Project{
 			ID:   1,
 			Name: "Test Project",

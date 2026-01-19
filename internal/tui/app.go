@@ -58,6 +58,7 @@ type Model struct {
 	timeEntries        []harvest.TimeEntry
 	projectsWithTasks  []harvest.ProjectWithTasks
 	selectedEntryIndex int
+	currentUser        *harvest.User
 
 	// New entry creation state
 	selectedProject      *harvest.Project
@@ -96,7 +97,7 @@ type Model struct {
 }
 
 // NewModel creates a new TUI model with the given configuration.
-func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State) Model {
+func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State, user *harvest.User) Model {
 	return Model{
 		currentView:        ViewList,
 		config:             cfg,
@@ -106,6 +107,7 @@ func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State)
 		timeEntries:        []harvest.TimeEntry{},
 		projectsWithTasks:  []harvest.ProjectWithTasks{},
 		selectedEntryIndex: 0,
+		currentUser:        user,
 		newEntryNotes:      "",
 		newEntryHours:      "",
 		newEntryBillable:   true,
@@ -491,7 +493,7 @@ func (m Model) wrapInBox(content string, width int) string {
 	if footerWidth > width-2 {
 		// Truncate if too long
 		footer = footer[:width-2]
-		footerWidth = width-2
+		footerWidth = width - 2
 	}
 	footerPadded := footer + strings.Repeat(" ", width-2-footerWidth)
 
@@ -791,15 +793,15 @@ func (m Model) renderEditView() string {
 	// Render as modal overlay
 	background := m.renderStyledListView()
 	modalWidth := 60
-	
+
 	// Create modal content
 	modalContent := m.renderEditForm(modalWidth)
-	
+
 	// Calculate position
 	modalHeight := strings.Count(modalContent, "\n") + 1
 	startX := (m.width - modalWidth) / 2
 	startY := (m.height - modalHeight) / 2
-	
+
 	// Ensure positive values
 	if startX < 0 {
 		startX = 0
@@ -807,7 +809,7 @@ func (m Model) renderEditView() string {
 	if startY < 0 {
 		startY = 0
 	}
-	
+
 	return m.renderModalOverlay(background, modalContent, startX, startY, modalWidth, modalHeight)
 }
 
@@ -886,16 +888,16 @@ func (m Model) renderEditForm(width int) string {
 		instructions,
 		statusMsg,
 	)
-	
+
 	// Style the modal with border and background
 	modal := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(AccentColor).
 		Padding(1, 2).
-		Width(width-4).
+		Width(width - 4).
 		Background(lipgloss.AdaptiveColor{Light: "#FAFAFA", Dark: "#1A1A1A"}).
 		Render(content)
-	
+
 	return modal
 }
 
@@ -1143,9 +1145,17 @@ func (m Model) renderBillableToggleView() string {
 func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	keys := DefaultKeyMap()
 
-	// Check for escape/quit first
+	// Check for quit first
 	switch msg.String() {
-	case "esc", "q":
+	case "q":
+		// Show farewell message
+		if m.currentUser != nil {
+			fullName := m.currentUser.FirstName + " " + m.currentUser.LastName
+			return m, tea.Sequence(
+				tea.Println(fmt.Sprintf("\nSee you next time, %s!", fullName)),
+				tea.Quit,
+			)
+		}
 		return m, tea.Quit
 	}
 
@@ -1450,7 +1460,7 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "shift+tab":
-		// Move to previous field  
+		// Move to previous field
 		m.editCurrentField = (m.editCurrentField - 1 + 2) % 2
 		// Update focus based on current field
 		if m.editCurrentField == 0 && m.editNotesInput != nil {
@@ -1713,11 +1723,11 @@ func (m Model) createTimeEntry() tea.Cmd {
 	}
 
 	request := harvest.CreateTimeEntryRequest{
-		ProjectID:  m.selectedProject.ID,
-		TaskID:     m.selectedTask.ID,
-		SpentDate:  m.currentDate.Format("2006-01-02"),
-		Hours:      hours,
-		Notes:      m.newEntryNotes,
+		ProjectID: m.selectedProject.ID,
+		TaskID:    m.selectedTask.ID,
+		SpentDate: m.currentDate.Format("2006-01-02"),
+		Hours:     hours,
+		Notes:     m.newEntryNotes,
 	}
 
 	return func() tea.Msg {
@@ -1757,8 +1767,8 @@ func (m Model) updateTimeEntry() tea.Cmd {
 	}
 
 	request := harvest.UpdateTimeEntryRequest{
-		Hours:      &hours,
-		Notes:      &m.editNotes,
+		Hours: &hours,
+		Notes: &m.editNotes,
 	}
 
 	entryID := m.editingEntry.ID
@@ -1785,7 +1795,7 @@ func (m Model) renderNewEntryModal() string {
 	// Center the modal
 	startX := (m.width - modalWidth) / 2
 	startY := (m.height - modalHeight) / 2
-	
+
 	// Ensure positive values
 	if startX < 0 {
 		startX = 0
@@ -1807,7 +1817,7 @@ func (m Model) renderNewEntryModal() string {
 func (m Model) renderModalOverlay(background, modal string, x, y, width, height int) string {
 	// For now, use a simpler approach: just render the modal with a visual indication of overlay
 	// Trying to composite styled text is complex due to ANSI escape codes
-	
+
 	// Validate inputs
 	if x < 0 {
 		x = 0
@@ -1815,36 +1825,36 @@ func (m Model) renderModalOverlay(background, modal string, x, y, width, height 
 	if y < 0 {
 		y = 0
 	}
-	
+
 	// Create a dimmed background effect by adding a semi-transparent overlay
 	bgLines := strings.Split(background, "\n")
 	modalLines := strings.Split(modal, "\n")
-	
+
 	// If no background or modal, return empty
 	if len(bgLines) == 0 && len(modalLines) == 0 {
 		return ""
 	}
-	
+
 	// Dim style for the background
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#999999", Dark: "#444444"})
-	
+
 	// Create the final output
 	var result []string
-	
+
 	// Add top padding lines (dimmed)
 	for i := 0; i < y && i < len(bgLines); i++ {
 		result = append(result, dimStyle.Render(bgLines[i]))
 	}
-	
+
 	// Add the modal lines with side padding
 	padding := ""
 	if x > 0 {
 		padding = strings.Repeat(" ", x)
 	}
 	for _, modalLine := range modalLines {
-		result = append(result, padding + modalLine)
+		result = append(result, padding+modalLine)
 	}
-	
+
 	// Add remaining background lines (dimmed) if there's room
 	startIdx := y + len(modalLines)
 	maxLines := m.height
@@ -1854,7 +1864,7 @@ func (m Model) renderModalOverlay(background, modal string, x, y, width, height 
 	for i := startIdx; i < len(bgLines) && len(result) < maxLines; i++ {
 		result = append(result, dimStyle.Render(bgLines[i]))
 	}
-	
+
 	return strings.Join(result, "\n")
 }
 
@@ -2080,7 +2090,6 @@ func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, m.createTimeEntry()
-
 
 	default:
 		// Pass to text inputs if focused
