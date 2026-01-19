@@ -794,6 +794,14 @@ func (m Model) renderEditView() string {
 	startX := (m.width - modalWidth) / 2
 	startY := (m.height - modalHeight) / 2
 	
+	// Ensure positive values
+	if startX < 0 {
+		startX = 0
+	}
+	if startY < 0 {
+		startY = 0
+	}
+	
 	return m.renderModalOverlay(background, modalContent, startX, startY, modalWidth, modalHeight)
 }
 
@@ -1809,6 +1817,14 @@ func (m Model) renderNewEntryModal() string {
 	// Center the modal
 	startX := (m.width - modalWidth) / 2
 	startY := (m.height - modalHeight) / 2
+	
+	// Ensure positive values
+	if startX < 0 {
+		startX = 0
+	}
+	if startY < 0 {
+		startY = 0
+	}
 
 	// Create modal content
 	modalContent := m.renderNewEntryForm(modalWidth)
@@ -1821,49 +1837,54 @@ func (m Model) renderNewEntryModal() string {
 
 // renderModalOverlay overlays modal content on background
 func (m Model) renderModalOverlay(background, modal string, x, y, width, height int) string {
-	// Split both views into lines
+	// For now, use a simpler approach: just render the modal with a visual indication of overlay
+	// Trying to composite styled text is complex due to ANSI escape codes
+	
+	// Validate inputs
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
+	
+	// Create a dimmed background effect by adding a semi-transparent overlay
 	bgLines := strings.Split(background, "\n")
 	modalLines := strings.Split(modal, "\n")
 	
-	// Create a dimmed style for the background
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#888888", Dark: "#555555"})
+	// If no background or modal, return empty
+	if len(bgLines) == 0 && len(modalLines) == 0 {
+		return ""
+	}
 	
-	// Apply dim style to all background lines
+	// Dim style for the background
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#999999", Dark: "#444444"})
+	
+	// Create the final output
 	var result []string
-	for i, line := range bgLines {
-		// Check if this line should have modal content overlaid
-		if i >= y && i < y+len(modalLines) {
-			modalIdx := i - y
-			if modalIdx < len(modalLines) {
-				// For lines with modal content, we need to composite them
-				// Get the modal line
-				modalLine := modalLines[modalIdx]
-				modalLineWidth := lipgloss.Width(modalLine)
-				
-				// Dim the background line
-				dimmedBg := dimStyle.Render(line)
-				
-				// Create padding for centering
-				padding := strings.Repeat(" ", x)
-				
-				// Composite the line: dimmed background + padding + modal
-				compositeLine := padding + modalLine
-				
-				// If the modal line is shorter than the full width, add dimmed background on the right
-				if x + modalLineWidth < lipgloss.Width(dimmedBg) {
-					// This is simplified - in reality we'd need to handle styled text properly
-					compositeLine = dimmedBg[:x] + modalLine + dimmedBg[x+modalLineWidth:]
-				}
-				
-				result = append(result, compositeLine)
-			} else {
-				// Just dim the background line
-				result = append(result, dimStyle.Render(line))
-			}
-		} else {
-			// Lines outside modal area - just dim them
-			result = append(result, dimStyle.Render(line))
-		}
+	
+	// Add top padding lines (dimmed)
+	for i := 0; i < y && i < len(bgLines); i++ {
+		result = append(result, dimStyle.Render(bgLines[i]))
+	}
+	
+	// Add the modal lines with side padding
+	padding := ""
+	if x > 0 {
+		padding = strings.Repeat(" ", x)
+	}
+	for _, modalLine := range modalLines {
+		result = append(result, padding + modalLine)
+	}
+	
+	// Add remaining background lines (dimmed) if there's room
+	startIdx := y + len(modalLines)
+	maxLines := m.height
+	if maxLines <= 0 {
+		maxLines = 40 // Default terminal height
+	}
+	for i := startIdx; i < len(bgLines) && len(result) < maxLines; i++ {
+		result = append(result, dimStyle.Render(bgLines[i]))
 	}
 	
 	return strings.Join(result, "\n")
