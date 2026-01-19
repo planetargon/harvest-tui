@@ -782,6 +782,22 @@ func (m Model) renderTaskSelectView() string {
 }
 
 func (m Model) renderEditView() string {
+	// Render as modal overlay
+	background := m.renderStyledListView()
+	modalWidth := 60
+	
+	// Create modal content
+	modalContent := m.renderEditForm(modalWidth)
+	
+	// Calculate position
+	modalHeight := strings.Count(modalContent, "\n") + 1
+	startX := (m.width - modalWidth) / 2
+	startY := (m.height - modalHeight) / 2
+	
+	return m.renderModalOverlay(background, modalContent, startX, startY, modalWidth, modalHeight)
+}
+
+func (m Model) renderEditForm(width int) string {
 	styles := DefaultStyles()
 
 	// Header
@@ -859,7 +875,7 @@ func (m Model) renderEditView() string {
 		statusMsg = styles.ErrorText.Render(m.statusMessage)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left,
+	content := lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		"",
 		info,
@@ -869,6 +885,17 @@ func (m Model) renderEditView() string {
 		instructions,
 		statusMsg,
 	)
+	
+	// Style the modal with border and background
+	modal := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(AccentColor).
+		Padding(1, 2).
+		Width(width-4).
+		Background(lipgloss.AdaptiveColor{Light: "#FAFAFA", Dark: "#1A1A1A"}).
+		Render(content)
+	
+	return modal
 }
 
 func (m Model) renderConfirmDeleteView() string {
@@ -1794,9 +1821,52 @@ func (m Model) renderNewEntryModal() string {
 
 // renderModalOverlay overlays modal content on background
 func (m Model) renderModalOverlay(background, modal string, x, y, width, height int) string {
-	// For now, just return the modal with a dimmed indication
-	// A full implementation would blend the two views
-	return modal
+	// Split both views into lines
+	bgLines := strings.Split(background, "\n")
+	modalLines := strings.Split(modal, "\n")
+	
+	// Create a dimmed style for the background
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#888888", Dark: "#555555"})
+	
+	// Apply dim style to all background lines
+	var result []string
+	for i, line := range bgLines {
+		// Check if this line should have modal content overlaid
+		if i >= y && i < y+len(modalLines) {
+			modalIdx := i - y
+			if modalIdx < len(modalLines) {
+				// For lines with modal content, we need to composite them
+				// Get the modal line
+				modalLine := modalLines[modalIdx]
+				modalLineWidth := lipgloss.Width(modalLine)
+				
+				// Dim the background line
+				dimmedBg := dimStyle.Render(line)
+				
+				// Create padding for centering
+				padding := strings.Repeat(" ", x)
+				
+				// Composite the line: dimmed background + padding + modal
+				compositeLine := padding + modalLine
+				
+				// If the modal line is shorter than the full width, add dimmed background on the right
+				if x + modalLineWidth < lipgloss.Width(dimmedBg) {
+					// This is simplified - in reality we'd need to handle styled text properly
+					compositeLine = dimmedBg[:x] + modalLine + dimmedBg[x+modalLineWidth:]
+				}
+				
+				result = append(result, compositeLine)
+			} else {
+				// Just dim the background line
+				result = append(result, dimStyle.Render(line))
+			}
+		} else {
+			// Lines outside modal area - just dim them
+			result = append(result, dimStyle.Render(line))
+		}
+	}
+	
+	return strings.Join(result, "\n")
 }
 
 // renderNewEntryForm renders the new entry form content
