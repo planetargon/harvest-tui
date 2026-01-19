@@ -1176,18 +1176,21 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.currentDate = m.currentDate.AddDate(0, 0, -1)
 		m.selectedEntryIndex = 0
 		m.loading = true
+		m.statusMessage = "" // Clear status messages on navigation
 		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
 
 	case key.Matches(msg, keys.NextDay):
 		m.currentDate = m.currentDate.AddDate(0, 0, 1)
 		m.selectedEntryIndex = 0
 		m.loading = true
+		m.statusMessage = "" // Clear status messages on navigation
 		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
 
 	case key.Matches(msg, keys.Today):
 		m.currentDate = time.Now()
 		m.selectedEntryIndex = 0
 		m.loading = true
+		m.statusMessage = "" // Clear status messages on navigation
 		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
 
 	case key.Matches(msg, keys.New):
