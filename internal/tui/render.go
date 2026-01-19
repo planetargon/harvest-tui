@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -16,15 +15,15 @@ func (m Model) renderStyledListView() string {
 		width = min(m.width-2, 80) // Cap at 80 chars wide
 	}
 
-	// Format date navigation with styled arrows
+	// Format date navigation with Tokyo Night styling
 	dateStr := m.currentDate.Format("Mon, Jan 2, 2006")
-	dateNav := MutedText.Render("◀ ") + DateHeader.Render(dateStr) + MutedText.Render(" ▶")
+	dateNav := ArrowNavStyle.Render("◀ ") + DateStyle.Render(dateStr) + ArrowNavStyle.Render(" ▶")
 
-	// Title bar with styled app title
+	// Title bar with Tokyo Night styling
 	titleBar := lipgloss.JoinHorizontal(
 		lipgloss.Left,
-		"  "+AppTitle.Render("Harvest Time Tracker"),
-		lipgloss.NewStyle().Width(width-26-lipgloss.Width(dateNav)).Render(""),
+		"  "+TitleStyle.Render("🌾 Harvest Time Tracker"),
+		lipgloss.NewStyle().Width(width-30-lipgloss.Width(dateNav)).Render(""),
 		dateNav,
 		"  ",
 	)
@@ -36,18 +35,18 @@ func (m Model) renderStyledListView() string {
 	}
 	totalStr := formatHoursSimple(totalHours)
 
-	// Section header with styled total
-	entriesText := "  Entries"
-	totalLabel := "Total: "
-	totalValue := AccentText.Render(totalStr)
-	paddingWidth := width - len(entriesText) - len(totalLabel) - lipgloss.Width(totalValue) - 2
+	// Section header with Tokyo Night styling
+	entriesText := SectionHeaderStyle.Render("Today's Entries")
+	totalLabelText := TotalLabel.Render("Total: ")
+	totalValue := TotalValue.Render(totalStr)
+	paddingWidth := width - lipgloss.Width(entriesText) - lipgloss.Width(totalLabelText) - lipgloss.Width(totalValue) - 4
 	if paddingWidth < 1 {
 		paddingWidth = 1
 	}
-	sectionHeader := entriesText + strings.Repeat(" ", paddingWidth) + totalLabel + totalValue + "  "
+	sectionHeader := "  " + entriesText + strings.Repeat(" ", paddingWidth) + totalLabelText + totalValue + "  "
 
-	// Divider
-	divider := "  " + strings.Repeat("─", width-4)
+	// Divider with Tokyo Night styling
+	divider := "  " + RenderDivider()
 
 	// Handle loading state
 	if m.loading {
@@ -80,8 +79,7 @@ func (m Model) renderStyledListView() string {
 			sectionHeader,
 			divider,
 			"",
-			"    " + MutedText.Render("No time entries for this date"),
-			"    " + SecondaryText.Render("Press 'n' to create a new entry"),
+			"    " + RenderEmptyState(),
 			"",
 		}
 		return m.wrapInStyledBox(strings.Join(content, "\n"), width)
@@ -117,7 +115,7 @@ func (m Model) renderStyledListView() string {
 
 // wrapInStyledBox wraps content in a styled box border.
 func (m Model) wrapInStyledBox(content string, width int) string {
-	borderStyle := lipgloss.NewStyle().Foreground(BorderColor)
+	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
 
 	// Top border
 	top := "┌" + strings.Repeat("─", width-2) + "┐"
@@ -140,11 +138,20 @@ func (m Model) wrapInStyledBox(content string, width int) string {
 		boxedLines = append(boxedLines, borderStyle.Render("│")+padded+borderStyle.Render("│"))
 	}
 
-	// Footer with keybindings
+	// Footer with keybindings using Tokyo Night styling
 	footerSeparator := borderStyle.Render("├" + strings.Repeat("─", width-2) + "┤")
-	footerText := "n new  e edit  s start/stop  d delete  ? help  q quit"
-	footer := MutedText.Render("  " + footerText)
-	footerPadded := footer + strings.Repeat(" ", max(0, width-2-lipgloss.Width(footer)))
+
+	// Build styled keybindings
+	keybindings := []string{
+		RenderKeybinding("n", "new"),
+		RenderKeybinding("e", "edit"),
+		RenderKeybinding("s", "start/stop"),
+		RenderKeybinding("d", "delete"),
+		RenderKeybinding("?", "help"),
+		RenderKeybinding("q", "quit"),
+	}
+	footerText := "  " + strings.Join(keybindings, "  ")
+	footerPadded := footerText + strings.Repeat(" ", max(0, width-2-lipgloss.Width(footerText)))
 
 	// Bottom border
 	bottom := borderStyle.Render("└" + strings.Repeat("─", width-2) + "┘")
@@ -156,92 +163,71 @@ func (m Model) wrapInStyledBox(content string, width int) string {
 	return strings.Join(boxedLines, "\n")
 }
 
-// renderStyledTimeEntry renders a single time entry with proper styling.
+// renderStyledTimeEntry renders a single time entry with Tokyo Night styling.
 func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, maxWidth int) string {
 	var lines []string
 
-	// Determine text style based on state
-	var lineStyle lipgloss.Style
-	if entry.IsLocked {
-		lineStyle = MutedText
-	} else if isSelected {
-		lineStyle = BaseText.Background(SelectedBgColor)
-	} else {
-		lineStyle = BaseText
-	}
-
-	// Status indicator
-	statusIcon := "  "
-	if isSelected {
-		// Add selection indicator with accent color
-		statusIcon = AccentText.Render("▶ ")
-	}
-
-	// Timer/lock icons
-	timerIcon := ""
-	if entry.IsRunning {
-		timerIcon = " ⏱️"
-	} else if entry.IsLocked {
-		timerIcon = " 🔒"
-	}
-
-	// Format hours with appropriate style
-	hoursText := formatHoursSimple(entry.Hours)
-	var styledHours string
-	if entry.IsRunning {
-		styledHours = RunningIndicator.Render(hoursText)
-	} else if entry.IsLocked {
-		styledHours = MutedText.Render(hoursText)
-	} else if isSelected {
-		styledHours = lineStyle.Render(hoursText)
-	} else {
-		styledHours = BaseText.Render(hoursText)
-	}
-
-	// Build the entry line
+	// Build the entry path with Tokyo Night colors
 	clientName := truncateString(entry.Client.Name, 20)
 	projectName := truncateString(entry.Project.Name, 25)
 	taskName := truncateString(entry.Task.Name, 20)
+	entryPath := RenderEntryPath(clientName, projectName, taskName)
 
-	entryText := fmt.Sprintf("%s → %s → %s", clientName, projectName, taskName)
+	// Format duration with Tokyo Night styling
+	styledDuration := ""
+	if entry.IsRunning {
+		styledDuration = RunningDurationStyle.Render(formatHoursSimple(entry.Hours))
+	} else if entry.IsLocked {
+		styledDuration = DurationStyle.Copy().Foreground(mutedText).Render(formatHoursSimple(entry.Hours))
+	} else {
+		styledDuration = DurationStyle.Render(formatHoursSimple(entry.Hours))
+	}
 
-	// Calculate padding for hours alignment
-	textWidth := len(statusIcon) + len(entryText)
-	hoursWidth := lipgloss.Width(styledHours)
-	iconWidth := len(timerIcon)
-	padding := maxWidth - textWidth - hoursWidth - iconWidth - 2
+	// Add running indicator
+	indicator := ""
+	if entry.IsRunning {
+		indicator = " " + RunningDot.Render("●")
+	} else if entry.IsLocked {
+		indicator = " " + LockedIcon.Render("🔒")
+	}
+
+	// Calculate padding for alignment
+	pathWidth := lipgloss.Width(entryPath)
+	durationWidth := lipgloss.Width(styledDuration)
+	indicatorWidth := lipgloss.Width(indicator)
+	padding := maxWidth - pathWidth - durationWidth - indicatorWidth - 4
 	if padding < 1 {
 		padding = 1
 	}
 
-	// Build the complete first line
-	firstLine := statusIcon + lineStyle.Render(entryText+strings.Repeat(" ", padding)) + styledHours + timerIcon
-
-	// Add selection border if selected
+	// Build the entry line
+	var entryLine string
 	if isSelected {
-		// Create left border for selection
-		firstLine = lipgloss.NewStyle().
-			BorderLeft(true).
-			BorderStyle(lipgloss.ThickBorder()).
-			BorderForeground(AccentColor).
-			PaddingLeft(0).
-			Render(firstLine)
-	}
-
-	lines = append(lines, firstLine)
-
-	// Second line: Notes (if any)
-	if entry.Notes != "" {
-		notesStyle := SecondaryText
+		// Selected entry with rounded border card
+		entryContent := entryPath + strings.Repeat(" ", padding) + styledDuration + indicator
+		entryLine = SelectedEntry.Render(entryContent)
+	} else {
+		// Unselected entry with left padding to align with border
+		entryContent := entryPath + strings.Repeat(" ", padding) + styledDuration + indicator
 		if entry.IsLocked {
-			notesStyle = MutedText
+			entryContent = LockedEntryStyle.Render(entryContent)
 		}
-		notesText := fmt.Sprintf("    \"%s\"", truncateString(entry.Notes, maxWidth-8))
-		lines = append(lines, notesStyle.Render(notesText))
+		entryLine = UnselectedEntry.Render(entryContent)
 	}
 
-	// Add blank line after entry
-	lines = append(lines, "")
+	lines = append(lines, entryLine)
+
+	// Notes line with Tokyo Night styling
+	if entry.Notes != "" {
+		notesText := RenderNotes(truncateString(entry.Notes, maxWidth-8))
+		if isSelected {
+			// Add padding to align with card content
+			lines = append(lines, "   "+notesText)
+		} else {
+			// Add padding to align with unselected entries
+			lines = append(lines, "      "+notesText)
+		}
+	}
 
 	return strings.Join(lines, "\n")
 }

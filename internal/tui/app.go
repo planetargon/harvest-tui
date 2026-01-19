@@ -892,7 +892,7 @@ func (m Model) renderEditForm(width int) string {
 	// Style the modal with border and background
 	modal := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(AccentColor).
+		BorderForeground(accentColor).
 		Padding(1, 2).
 		Width(width - 4).
 		Background(lipgloss.AdaptiveColor{Light: "#FAFAFA", Dark: "#1A1A1A"}).
@@ -1970,7 +1970,7 @@ func (m Model) renderNewEntryForm(width int) string {
 	// Style the modal with border and background
 	modal := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(AccentColor).
+		BorderForeground(accentColor).
 		Padding(1, 2).
 		Width(width - 4).
 		Background(lipgloss.AdaptiveColor{Light: "#FAFAFA", Dark: "#1A1A1A"}).
