@@ -1023,3 +1023,117 @@ func TestGlobalKeyHandling(t *testing.T) {
 		}
 	})
 }
+
+func TestDailyTotalDisplay(t *testing.T) {
+	cfg := &config.Config{
+		Harvest: config.HarvestConfig{
+			AccountID:   "12345",
+			AccessToken: "test-token",
+		},
+	}
+	client := harvest.NewClient("12345", "test-token")
+	appState := &state.State{}
+
+	t.Run("given model with multiple time entries when rendered then displays correct daily total", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:         1,
+				Hours:      2.5,
+				Notes:      "Development work",
+				IsBillable: true,
+				IsLocked:   false,
+				IsRunning:  false,
+			},
+			{
+				ID:         2,
+				Hours:      1.0,
+				Notes:      "Meeting",
+				IsBillable: false,
+				IsLocked:   false,
+				IsRunning:  false,
+			},
+			{
+				ID:         3,
+				Hours:      0.75,
+				Notes:      "Code review",
+				IsBillable: true,
+				IsLocked:   false,
+				IsRunning:  false,
+			},
+		}
+		model.currentDate = time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
+
+		output := model.View()
+
+		// Check that daily total is calculated correctly (2.5 + 1.0 + 0.75 = 4.25 hours = 4:15)
+		if !strings.Contains(output, "Daily total") {
+			t.Error("expected output to contain 'Daily total'")
+		}
+
+		if !strings.Contains(output, "4:15") {
+			t.Error("expected output to contain daily total '4:15'")
+		}
+	})
+
+	t.Run("given model with no time entries when rendered then displays zero daily total", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{}
+		model.currentDate = time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
+
+		output := model.View()
+
+		// Should show 0:00 for empty day
+		if !strings.Contains(output, "Daily total") {
+			t.Error("expected output to contain 'Daily total'")
+		}
+
+		if !strings.Contains(output, "0:00") {
+			t.Error("expected output to contain daily total '0:00'")
+		}
+	})
+
+	t.Run("given model with fractional hours when rendered then displays correct time format", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:    1,
+				Hours: 1.25, // 1:15
+			},
+			{
+				ID:    2,
+				Hours: 0.5, // 0:30
+			},
+		}
+		model.currentDate = time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
+
+		output := model.View()
+
+		// Total should be 1:45
+		if !strings.Contains(output, "1:45") {
+			t.Error("expected output to contain daily total '1:45'")
+		}
+	})
+
+	t.Run("given model with large total when rendered then displays hours correctly", func(t *testing.T) {
+		model := NewModel(cfg, client, appState)
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:    1,
+				Hours: 8.5, // 8:30
+			},
+			{
+				ID:    2,
+				Hours: 2.25, // 2:15
+			},
+		}
+		model.currentDate = time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
+
+		output := model.View()
+
+		// Total should be 10:45
+		if !strings.Contains(output, "10:45") {
+			t.Error("expected output to contain daily total '10:45'")
+		}
+	})
+}

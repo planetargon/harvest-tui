@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step  
-Step 67: Write tests for main list view rendering with no entries
+Step 76: Implement project selection view with Bubbles list
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -66,7 +66,19 @@ Step 67: Write tests for main list view rendering with no entries
 - [x] Step 60: Implement model initialization
 - [x] Step 61: Write tests for main list view rendering with entries
 - [x] Step 62: Implement main list view rendering with mock data
+- [x] Step 63: Write tests for main list view rendering with no entries
+- [x] Step 64: Implement empty state display
+- [x] Step 65: Write tests for selection navigation (j/k, up/down)
 - [x] Step 66: Write tests for key handling and navigation
+- [x] Step 67: Write tests for daily total display
+- [x] Step 68: Implement daily total in header
+- [x] Step 69: Write tests for day navigation (left arrow = previous day)
+- [x] Step 70: Write tests for day navigation (right arrow = next day)  
+- [x] Step 71: Write tests for jump to today (t key)
+- [x] Step 72: Implement day navigation with date state changes
+- [x] Step 73: Implement loading spinner during data fetch
+- [x] Step 74: Implement error display for failed fetches
+- [x] Step 75: Write tests for view transition to project selection on `n`
 
 ## Blockers
 (none)

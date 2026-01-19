@@ -279,7 +279,15 @@ func (m Model) renderListView() string {
 				styles.SecondaryText.Render("Press 'n' to create a new entry"),
 			),
 		)
-		return lipgloss.JoinVertical(lipgloss.Left, header, emptyState)
+
+		// Add daily total (0:00 for empty day)
+		footer := styles.Footer.Render(
+			lipgloss.JoinHorizontal(lipgloss.Left,
+				"Daily total: "+styles.PrimaryText.Render("0:00"),
+			),
+		)
+
+		return lipgloss.JoinVertical(lipgloss.Left, header, emptyState, footer)
 	}
 
 	// Render time entries
