@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step
-Step 24: Define Client, Project, Task, TimeEntry types in `internal/domain/types.go`
+Step 34: Create HTTP client wrapper in `internal/harvest/client.go` with auth headers
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -27,14 +27,25 @@ Step 24: Define Client, Project, Task, TimeEntry types in `internal/domain/types
 - [x] Step 21: Write tests for state saving
 - [x] Step 22: Implement state loading/saving for recents
 - [x] Step 23: Write tests for recents management (add, bump to top, cap at 3, dedup) and implement
+- [x] Step 24: Define Client, Project, Task, TimeEntry types in `internal/domain/types.go`
+- [x] Step 25: Write tests for duration formatting (hours float to HH:MM string)
+- [x] Step 26: Implement duration formatting
+- [x] Step 27: Write tests for duration parsing (HH:MM string to hours float)
+- [x] Step 28: Implement duration parsing with validation
+- [x] Step 29: Write tests for sorting clients alphabetically
+- [x] Step 30: Write tests for sorting projects alphabetically within client
+- [x] Step 31: Implement sorting functions
+- [x] Step 32: Write tests for daily total calculation
+- [x] Step 33: Implement daily total calculation
 
 ## Blockers
 (none)
 
 ## Notes
-Phase 1 (Project Setup), Phase 2 (Documentation Setup), Phase 3 (Minimal TUI), and Phase 4 (Configuration) completed successfully.
-Phase 5 (State Management) completed successfully - comprehensive state persistence with recents management.
-Starting Phase 6: Domain Types.
+Phases 1-5 completed successfully.
+Phase 6 (Domain Types) completed successfully - comprehensive domain model with duration handling.
+Phase 7 (Domain Logic) completed successfully - sorting and calculation functions.
+Starting Phase 8: Harvest API Client - Setup.
 
 ---
 
@@ -74,18 +85,18 @@ Starting Phase 6: Domain Types.
 - [x] Step 23: Write tests for recents management (add, bump to top, cap at 3, dedup) and implement
 
 ### Phase 6: Domain Types (Steps 24-28)
-- [ ] Step 24: Define Client, Project, Task, TimeEntry types in `internal/domain/types.go`
-- [ ] Step 25: Write tests for duration formatting (hours float to HH:MM string)
-- [ ] Step 26: Implement duration formatting
-- [ ] Step 27: Write tests for duration parsing (HH:MM string to hours float)
-- [ ] Step 28: Implement duration parsing with validation
+- [x] Step 24: Define Client, Project, Task, TimeEntry types in `internal/domain/types.go`
+- [x] Step 25: Write tests for duration formatting (hours float to HH:MM string)
+- [x] Step 26: Implement duration formatting
+- [x] Step 27: Write tests for duration parsing (HH:MM string to hours float)
+- [x] Step 28: Implement duration parsing with validation
 
 ### Phase 7: Domain Logic (Steps 29-33)
-- [ ] Step 29: Write tests for sorting clients alphabetically
-- [ ] Step 30: Write tests for sorting projects alphabetically within client
-- [ ] Step 31: Implement sorting functions
-- [ ] Step 32: Write tests for daily total calculation
-- [ ] Step 33: Implement daily total calculation
+- [x] Step 29: Write tests for sorting clients alphabetically
+- [x] Step 30: Write tests for sorting projects alphabetically within client
+- [x] Step 31: Implement sorting functions
+- [x] Step 32: Write tests for daily total calculation
+- [x] Step 33: Implement daily total calculation
 
 ### Phase 8: Harvest API Client - Setup (Steps 34-38)
 - [ ] Step 34: Create HTTP client wrapper in `internal/harvest/client.go` with auth headers
