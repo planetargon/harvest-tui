@@ -1,7 +1,7 @@
 # Progress
 
 ## Current Step  
-Step 76: Implement project selection view with Bubbles list
+Step 77: Write tests for project list displaying Client → Project format
 
 ## Completed Steps
 - [x] Step 1: Initialize Go module with `go mod init github.com/planetargon/argon-harvest-tui`
@@ -79,6 +79,7 @@ Step 76: Implement project selection view with Bubbles list
 - [x] Step 73: Implement loading spinner during data fetch
 - [x] Step 74: Implement error display for failed fetches
 - [x] Step 75: Write tests for view transition to project selection on `n`
+- [x] Step 76: Implement project selection view with Bubbles list
 
 ## Blockers
 (none)

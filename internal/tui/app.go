@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/planetargon/argon-harvest-tui/internal/config"
@@ -65,6 +66,10 @@ type Model struct {
 	statusMessage string
 	showSpinner   bool
 
+	// List components for selection views
+	projectList list.Model
+	taskList    list.Model
+
 	// Window dimensions
 	width  int
 	height int
@@ -91,6 +96,8 @@ func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State)
 		errorMessage:       "",
 		statusMessage:      "",
 		showSpinner:        false,
+		projectList:        list.New([]list.Item{}, newProjectDelegate(), 0, 0),
+		taskList:           list.New([]list.Item{}, newTaskDelegate(), 0, 0),
 		width:              80,
 		height:             24,
 	}
@@ -110,6 +117,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.projectList.SetSize(msg.Width, msg.Height-8)
+		m.taskList.SetSize(msg.Width, msg.Height-8)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -369,8 +378,122 @@ func formatHoursSimple(hours float64) string {
 	return fmt.Sprintf("%d:%02d", h, m)
 }
 
+// projectItem represents a project in the selection list.
+type projectItem struct {
+	project harvest.Project
+	client  harvest.ProjectClient
+}
+
+func (i projectItem) FilterValue() string {
+	return i.project.Name + " " + i.client.Name
+}
+
+func (i projectItem) Title() string {
+	return i.client.Name + " → " + i.project.Name
+}
+
+func (i projectItem) Description() string {
+	return "Project ID: " + fmt.Sprintf("%d", i.project.ID)
+}
+
+// taskItem represents a task in the selection list.
+type taskItem struct {
+	task harvest.Task
+}
+
+func (i taskItem) FilterValue() string {
+	return i.task.Name
+}
+
+func (i taskItem) Title() string {
+	return i.task.Name
+}
+
+func (i taskItem) Description() string {
+	return "Task ID: " + fmt.Sprintf("%d", i.task.ID)
+}
+
+// newProjectDelegate creates a new delegate for project list items.
+func newProjectDelegate() list.DefaultDelegate {
+	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = true
+	return delegate
+}
+
+// newTaskDelegate creates a new delegate for task list items.
+func newTaskDelegate() list.DefaultDelegate {
+	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = true
+	return delegate
+}
+
+// updateProjectList updates the project list with current projects and recents.
+func (m *Model) updateProjectList() {
+	var items []list.Item
+
+	// Add recents section first
+	if len(m.appState.Recents) > 0 {
+		for _, recent := range m.appState.Recents {
+			// Find the matching project and client
+			for _, pwt := range m.projectsWithTasks {
+				if pwt.Project.ID == recent.ProjectID && pwt.Project.Client.ID == recent.ClientID {
+					items = append(items, projectItem{
+						project: pwt.Project,
+						client:  pwt.Project.Client,
+					})
+					break
+				}
+			}
+		}
+	}
+
+	// Add all projects sorted by client then project name
+	for _, pwt := range m.projectsWithTasks {
+		// Skip if already in recents
+		isRecent := false
+		for _, recent := range m.appState.Recents {
+			if pwt.Project.ID == recent.ProjectID && pwt.Project.Client.ID == recent.ClientID {
+				isRecent = true
+				break
+			}
+		}
+		if !isRecent {
+			items = append(items, projectItem{
+				project: pwt.Project,
+				client:  pwt.Project.Client,
+			})
+		}
+	}
+
+	m.projectList.SetItems(items)
+	m.projectList.Title = "Select Project"
+}
+
 func (m Model) renderProjectSelectView() string {
-	return "Project select view - TODO: implement"
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("New Time Entry"),
+			"  ",
+			styles.Subtitle.Render("Step 1: Choose Project"),
+		),
+	)
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Press Enter to select • Esc to cancel • / to filter")
+
+	// Render the list
+	listView := m.projectList.View()
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		instructions,
+		"",
+		listView,
+	)
 }
 
 func (m Model) renderTaskSelectView() string {
@@ -428,6 +551,8 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.projectsWithTasks) > 0 {
 			m.currentView = ViewSelectProject
 			m.clearEditState()
+			m.updateProjectList()
+			m.projectList.SetSize(m.width, m.height-8) // Account for header and instructions
 			return m, nil
 		} else {
 			m.statusMessage = "No projects available. Please check your Harvest configuration."
@@ -502,7 +627,40 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m, nil
+	var cmd tea.Cmd
+
+	switch msg.String() {
+	case "enter":
+		// Get the selected project
+		selected := m.projectList.SelectedItem()
+		if selected != nil {
+			if item, ok := selected.(projectItem); ok {
+				m.selectedProject = &item.project
+				// Find tasks for this project
+				for _, pwt := range m.projectsWithTasks {
+					if pwt.Project.ID == item.project.ID {
+						if len(pwt.Tasks) == 1 {
+							// Only one task, skip task selection
+							m.selectedTask = &pwt.Tasks[0]
+							// TODO: Move to notes input view when implemented
+							m.statusMessage = "Selected: " + item.client.Name + " → " + item.project.Name + " → " + pwt.Tasks[0].Name
+							m.currentView = ViewList
+						} else {
+							// Multiple tasks, show task selection
+							m.currentView = ViewSelectTask
+							// TODO: Update task list
+						}
+						break
+					}
+				}
+			}
+		}
+		return m, nil
+	}
+
+	// Handle list navigation
+	m.projectList, cmd = m.projectList.Update(msg)
+	return m, cmd
 }
 
 func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
