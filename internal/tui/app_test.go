@@ -1500,3 +1500,256 @@ func TestProjectListSorting(t *testing.T) {
 		}
 	})
 }
+
+func TestProjectListRecents(t *testing.T) {
+	cfg := &config.Config{Harvest: config.HarvestConfig{AccountID: "123456", AccessToken: "test-token"}}
+	client := &harvest.Client{}
+
+	t.Run("given model with recents when updateProjectList called then recents appear at top in order", func(t *testing.T) {
+		appState := &state.State{
+			Recents: []state.RecentEntry{
+				{ClientID: 200, ProjectID: 2, TaskID: 2}, // BigCorp → Mobile App
+				{ClientID: 100, ProjectID: 1, TaskID: 1}, // Acme → Website
+				{ClientID: 300, ProjectID: 3, TaskID: 3}, // Charlie → Desktop
+			},
+		}
+		model := NewModel(cfg, client, appState)
+
+		// Set up projects in different order than recents
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:     1,
+					Name:   "Website Redesign",
+					Client: harvest.ProjectClient{ID: 100, Name: "Acme Corp"},
+				},
+				Tasks: []harvest.Task{{ID: 1, Name: "Task1"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:     2,
+					Name:   "Mobile App",
+					Client: harvest.ProjectClient{ID: 200, Name: "BigCorp Inc"},
+				},
+				Tasks: []harvest.Task{{ID: 2, Name: "Task2"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:     3,
+					Name:   "Desktop App",
+					Client: harvest.ProjectClient{ID: 300, Name: "Charlie Ltd"},
+				},
+				Tasks: []harvest.Task{{ID: 3, Name: "Task3"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:     4,
+					Name:   "Backend API",
+					Client: harvest.ProjectClient{ID: 100, Name: "Acme Corp"},
+				},
+				Tasks: []harvest.Task{{ID: 4, Name: "Task4"}},
+			},
+		}
+
+		model.updateProjectList()
+		items := model.projectList.Items()
+
+		// Should have 4 items: 3 recents + 1 non-recent (Backend API)
+		if len(items) != 4 {
+			t.Fatalf("expected 4 items, got %d", len(items))
+		}
+
+		// Verify recents are at top in order
+		expectedRecents := []struct {
+			clientID  int
+			projectID int
+			title     string
+		}{
+			{200, 2, "BigCorp Inc → Mobile App"},
+			{100, 1, "Acme Corp → Website Redesign"},
+			{300, 3, "Charlie Ltd → Desktop App"},
+		}
+
+		for i, expected := range expectedRecents {
+			item, ok := items[i].(projectItem)
+			if !ok {
+				t.Fatalf("item %d is not a projectItem", i)
+			}
+
+			if item.project.ID != expected.projectID || item.client.ID != expected.clientID {
+				t.Errorf("item %d: expected project ID %d and client ID %d, got project ID %d and client ID %d",
+					i, expected.projectID, expected.clientID, item.project.ID, item.client.ID)
+			}
+
+			if item.Title() != expected.title {
+				t.Errorf("item %d: expected title '%s', got '%s'", i, expected.title, item.Title())
+			}
+		}
+
+		// Last item should be the non-recent project (Backend API)
+		lastItem, ok := items[3].(projectItem)
+		if !ok {
+			t.Fatal("last item is not a projectItem")
+		}
+		if lastItem.project.Name != "Backend API" {
+			t.Errorf("expected last item to be 'Backend API', got '%s'", lastItem.project.Name)
+		}
+	})
+
+	t.Run("given model with recents and non-recents when updateProjectList called then non-recents are sorted alphabetically after recents", func(t *testing.T) {
+		appState := &state.State{
+			Recents: []state.RecentEntry{
+				{ClientID: 100, ProjectID: 1, TaskID: 1}, // Acme → Website
+			},
+		}
+		model := NewModel(cfg, client, appState)
+
+		// Set up projects with some in recents, some not
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:     1,
+					Name:   "Website Redesign",
+					Client: harvest.ProjectClient{ID: 100, Name: "Acme Corp"},
+				},
+				Tasks: []harvest.Task{{ID: 1, Name: "Task1"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:     3,
+					Name:   "Zebra Project",
+					Client: harvest.ProjectClient{ID: 300, Name: "Charlie Ltd"},
+				},
+				Tasks: []harvest.Task{{ID: 3, Name: "Task3"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:     2,
+					Name:   "Alpha Project",
+					Client: harvest.ProjectClient{ID: 200, Name: "Beta Corp"},
+				},
+				Tasks: []harvest.Task{{ID: 2, Name: "Task2"}},
+			},
+		}
+
+		model.updateProjectList()
+		items := model.projectList.Items()
+
+		if len(items) != 3 {
+			t.Fatalf("expected 3 items, got %d", len(items))
+		}
+
+		// First should be the recent
+		firstItem, ok := items[0].(projectItem)
+		if !ok {
+			t.Fatal("first item is not a projectItem")
+		}
+		if firstItem.Title() != "Acme Corp → Website Redesign" {
+			t.Errorf("expected first item to be recent 'Acme Corp → Website Redesign', got '%s'", firstItem.Title())
+		}
+
+		// Remaining should be sorted alphabetically by client then project
+		expectedTitles := []string{
+			"Beta Corp → Alpha Project", // Beta comes before Charlie alphabetically
+			"Charlie Ltd → Zebra Project",
+		}
+
+		for i, expected := range expectedTitles {
+			item, ok := items[i+1].(projectItem) // +1 to skip the recent
+			if !ok {
+				t.Fatalf("item %d is not a projectItem", i+1)
+			}
+
+			if item.Title() != expected {
+				t.Errorf("item %d: expected title '%s', got '%s'", i+1, expected, item.Title())
+			}
+		}
+	})
+
+	t.Run("given model with stale recents when updateProjectList called then stale recents are ignored", func(t *testing.T) {
+		appState := &state.State{
+			Recents: []state.RecentEntry{
+				{ClientID: 100, ProjectID: 1, TaskID: 1},     // Valid recent
+				{ClientID: 999, ProjectID: 999, TaskID: 999}, // Stale recent (project doesn't exist)
+			},
+		}
+		model := NewModel(cfg, client, appState)
+
+		// Only provide the valid project
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:     1,
+					Name:   "Website Redesign",
+					Client: harvest.ProjectClient{ID: 100, Name: "Acme Corp"},
+				},
+				Tasks: []harvest.Task{{ID: 1, Name: "Task1"}},
+			},
+		}
+
+		model.updateProjectList()
+		items := model.projectList.Items()
+
+		// Should only have 1 item (the valid recent, stale ignored)
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(items))
+		}
+
+		item, ok := items[0].(projectItem)
+		if !ok {
+			t.Fatal("item is not a projectItem")
+		}
+
+		if item.Title() != "Acme Corp → Website Redesign" {
+			t.Errorf("expected 'Acme Corp → Website Redesign', got '%s'", item.Title())
+		}
+	})
+
+	t.Run("given model with no recents when updateProjectList called then projects are sorted alphabetically", func(t *testing.T) {
+		appState := &state.State{Recents: []state.RecentEntry{}} // No recents
+		model := NewModel(cfg, client, appState)
+
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:     2,
+					Name:   "Zebra Project",
+					Client: harvest.ProjectClient{ID: 200, Name: "Beta Corp"},
+				},
+				Tasks: []harvest.Task{{ID: 2, Name: "Task2"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:     1,
+					Name:   "Alpha Project",
+					Client: harvest.ProjectClient{ID: 100, Name: "Alpha Corp"},
+				},
+				Tasks: []harvest.Task{{ID: 1, Name: "Task1"}},
+			},
+		}
+
+		model.updateProjectList()
+		items := model.projectList.Items()
+
+		if len(items) != 2 {
+			t.Fatalf("expected 2 items, got %d", len(items))
+		}
+
+		// Should be sorted alphabetically by client name
+		expectedTitles := []string{
+			"Alpha Corp → Alpha Project",
+			"Beta Corp → Zebra Project",
+		}
+
+		for i, expected := range expectedTitles {
+			item, ok := items[i].(projectItem)
+			if !ok {
+				t.Fatalf("item %d is not a projectItem", i)
+			}
+
+			if item.Title() != expected {
+				t.Errorf("item %d: expected title '%s', got '%s'", i, expected, item.Title())
+			}
+		}
+	})
+}
