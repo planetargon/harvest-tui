@@ -76,10 +76,11 @@ type Model struct {
 	editCurrentField int // 0=notes, 1=duration
 
 	// UI state
-	loading       bool
-	errorMessage  string
-	statusMessage string
-	showSpinner   bool
+	loading           bool
+	errorMessage      string
+	statusMessage     string
+	statusMessageTime time.Time // Track when the status message was set
+	showSpinner       bool
 
 	// List components for selection views
 	projectList list.Model
@@ -117,6 +118,7 @@ func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State,
 		loading:            false,
 		errorMessage:       "",
 		statusMessage:      "",
+		statusMessageTime:  time.Time{},
 		showSpinner:        false,
 		projectList:        list.New([]list.Item{}, newProjectDelegate(), 0, 0),
 		taskList:           list.New([]list.Item{}, newTaskDelegate(), 0, 0),
@@ -163,6 +165,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
+		// Clear status message after 3 seconds
+		if m.statusMessage != "" && !m.statusMessageTime.IsZero() {
+			if time.Since(m.statusMessageTime) > 3*time.Second {
+				m.statusMessage = ""
+				m.statusMessageTime = time.Time{}
+			}
+		}
+
 		// Check if we have a running timer
 		if m.hasRunningTimer() && m.currentView == ViewList && !m.loading {
 			// Fetch updated time entries to get the latest hours
@@ -171,8 +181,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				tickCmd(), // Continue ticking
 			)
 		}
-		// If no running timer or not in list view, just continue ticking
-		return m, tickCmd()
+		// Continue ticking if we have a running timer or status message
+		if m.hasRunningTimer() || m.statusMessage != "" {
+			return m, tickCmd()
+		}
+		return m, nil
 
 	case projectsWithTasksFetchedMsg:
 		if msg.err != nil {
@@ -185,7 +198,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case timeEntryStartedMsg:
 		if msg.err != nil {
-			m.statusMessage = "Failed to start timer: " + msg.err.Error()
+			m.setStatusMessage("Failed to start timer: " + msg.err.Error())
 		} else {
 			// Update the entry in our local list
 			for i, entry := range m.timeEntries {
@@ -194,7 +207,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					break
 				}
 			}
-			m.statusMessage = "Timer started successfully"
+			m.setStatusMessage("Timer started successfully")
 			// Start ticking for real-time updates
 			return m, tickCmd()
 		}
@@ -202,7 +215,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case timeEntryStoppedMsg:
 		if msg.err != nil {
-			m.statusMessage = "Failed to stop timer: " + msg.err.Error()
+			m.setStatusMessage("Failed to stop timer: " + msg.err.Error())
 		} else {
 			// Update the entry in our local list
 			for i, entry := range m.timeEntries {
@@ -211,17 +224,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					break
 				}
 			}
-			m.statusMessage = "Timer stopped successfully"
+			m.setStatusMessage("Timer stopped successfully")
 		}
 		return m, nil
 
 	case timeEntryCreatedMsg:
 		if msg.err != nil {
-			m.statusMessage = "Failed to create entry: " + msg.err.Error()
+			m.setStatusMessage("Failed to create entry: " + msg.err.Error())
 		} else {
 			// Add the new entry to our local list
 			m.timeEntries = append([]harvest.TimeEntry{*msg.entry}, m.timeEntries...)
-			m.statusMessage = "Time entry created successfully"
+			m.setStatusMessage("Time entry created successfully")
 			// Clear new entry state and return to main list
 			m.clearEditState()
 			m.currentView = ViewList
@@ -230,7 +243,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case timeEntryUpdatedMsg:
 		if msg.err != nil {
-			m.statusMessage = "Failed to update entry: " + msg.err.Error()
+			m.setStatusMessage("Failed to update entry: " + msg.err.Error())
 		} else {
 			// Update the entry in our local list
 			for i, entry := range m.timeEntries {
@@ -239,7 +252,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					break
 				}
 			}
-			m.statusMessage = "Time entry updated successfully"
+			m.setStatusMessage("Time entry updated successfully")
 			// Clear edit state and return to main list
 			m.clearEditState()
 			m.currentView = ViewList
@@ -248,7 +261,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case timeEntryDeletedMsg:
 		if msg.err != nil {
-			m.statusMessage = "Failed to delete entry: " + msg.err.Error()
+			m.setStatusMessage("Failed to delete entry: " + msg.err.Error())
 		} else {
 			// Remove the entry from our local list
 			newEntries := []harvest.TimeEntry{}
@@ -264,7 +277,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedEntryIndex--
 			}
 
-			m.statusMessage = "Time entry deleted successfully"
+			m.setStatusMessage("Time entry deleted successfully")
 			// Clear edit state and return to main list
 			m.clearEditState()
 			m.currentView = ViewList
@@ -1164,11 +1177,21 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.timeEntries) > 0 && m.selectedEntryIndex > 0 {
 			m.selectedEntryIndex--
 		}
+		// Clear any status messages on navigation
+		if m.statusMessage != "" {
+			m.statusMessage = ""
+			m.statusMessageTime = time.Time{}
+		}
 		return m, nil
 
 	case key.Matches(msg, keys.Down):
 		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries)-1 {
 			m.selectedEntryIndex++
+		}
+		// Clear any status messages on navigation
+		if m.statusMessage != "" {
+			m.statusMessage = ""
+			m.statusMessageTime = time.Time{}
 		}
 		return m, nil
 
@@ -1176,21 +1199,21 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.currentDate = m.currentDate.AddDate(0, 0, -1)
 		m.selectedEntryIndex = 0
 		m.loading = true
-		m.statusMessage = "" // Clear status messages on navigation
+		m.clearStatusMessage()
 		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
 
 	case key.Matches(msg, keys.NextDay):
 		m.currentDate = m.currentDate.AddDate(0, 0, 1)
 		m.selectedEntryIndex = 0
 		m.loading = true
-		m.statusMessage = "" // Clear status messages on navigation
+		m.clearStatusMessage()
 		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
 
 	case key.Matches(msg, keys.Today):
 		m.currentDate = time.Now()
 		m.selectedEntryIndex = 0
 		m.loading = true
-		m.statusMessage = "" // Clear status messages on navigation
+		m.clearStatusMessage()
 		return m, fetchTimeEntriesCmd(m.harvestClient, m.currentDate)
 
 	case key.Matches(msg, keys.New):
@@ -1221,7 +1244,7 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.projectList.SetSize(m.width-10, min(len(m.projectList.Items()), 10))
 			return m, nil
 		} else {
-			m.statusMessage = "No projects available. Please check your Harvest configuration."
+			m.setStatusMessage("No projects available. Please check your Harvest configuration.")
 			return m, nil
 		}
 
@@ -1229,11 +1252,11 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries) {
 			selectedEntry := m.timeEntries[m.selectedEntryIndex]
 			if selectedEntry.IsLocked {
-				m.statusMessage = "Cannot edit locked time entry."
+				m.setStatusMessage("Cannot edit locked time entry.")
 				return m, nil
 			}
 			if selectedEntry.IsRunning {
-				m.statusMessage = "Cannot edit running time entry. Stop the timer first."
+				m.setStatusMessage("Cannot edit running time entry. Stop the timer first.")
 				return m, nil
 			}
 			m.editingEntry = &selectedEntry
@@ -1265,11 +1288,11 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.timeEntries) > 0 && m.selectedEntryIndex < len(m.timeEntries) {
 			selectedEntry := m.timeEntries[m.selectedEntryIndex]
 			if selectedEntry.IsLocked {
-				m.statusMessage = "Cannot delete locked time entry."
+				m.setStatusMessage("Cannot delete locked time entry.")
 				return m, nil
 			}
 			if selectedEntry.IsRunning {
-				m.statusMessage = "Cannot delete running time entry. Stop the timer first."
+				m.setStatusMessage("Cannot delete running time entry. Stop the timer first.")
 				return m, nil
 			}
 			m.editingEntry = &selectedEntry
@@ -1283,9 +1306,9 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			selectedEntry := m.timeEntries[m.selectedEntryIndex]
 			if selectedEntry.IsLocked {
 				if selectedEntry.IsRunning {
-					m.statusMessage = "Cannot stop locked time entry."
+					m.setStatusMessage("Cannot stop locked time entry.")
 				} else {
-					m.statusMessage = "Cannot start locked time entry."
+					m.setStatusMessage("Cannot start locked time entry.")
 				}
 				return m, nil
 			}
@@ -1350,7 +1373,7 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					if pwt.Project.ID == item.project.ID {
 						if len(pwt.Tasks) == 0 {
 							// No tasks available for this project
-							m.statusMessage = "No tasks available for this project"
+							m.setStatusMessage("No tasks available for this project")
 							m.selectedProject = nil
 							return m, nil
 						}
@@ -1575,7 +1598,7 @@ func (m Model) handleDurationInputKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			// Validate duration format
 			if _, err := domain.ParseDuration(duration); err != nil {
-				m.statusMessage = "Invalid duration format. Use HH:MM (e.g., 1:30)"
+				m.setStatusMessage("Invalid duration format. Use HH:MM (e.g., 1:30)")
 				return m, nil
 			}
 			m.newEntryHours = duration
@@ -1698,9 +1721,21 @@ func deleteTimeEntryCmd(client *harvest.Client, entryID int) tea.Cmd {
 
 // tickCmd returns a command that sends a tick message after a delay
 func tickCmd() tea.Cmd {
-	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(1*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
+}
+
+// setStatusMessage sets a status message with a timestamp
+func (m *Model) setStatusMessage(msg string) {
+	m.statusMessage = msg
+	m.statusMessageTime = time.Now()
+}
+
+// clearStatusMessage clears the status message
+func (m *Model) clearStatusMessage() {
+	m.statusMessage = ""
+	m.statusMessageTime = time.Time{}
 }
 
 // hasRunningTimer checks if any time entry has a running timer
@@ -2074,7 +2109,7 @@ func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Save entry
 		// Validate required fields
 		if m.selectedProject == nil || m.selectedTask == nil {
-			m.statusMessage = "Please select a project and task"
+			m.setStatusMessage("Please select a project and task")
 			return m, nil
 		}
 
@@ -2088,7 +2123,7 @@ func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		// Validate duration
 		if _, err := domain.ParseDuration(m.newEntryHours); err != nil {
-			m.statusMessage = "Invalid duration format. Use HH:MM (e.g., 1:30)"
+			m.setStatusMessage("Invalid duration format. Use HH:MM (e.g., 1:30)")
 			return m, nil
 		}
 
