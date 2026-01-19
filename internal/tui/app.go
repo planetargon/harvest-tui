@@ -684,7 +684,12 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				// Find tasks for this project
 				for _, pwt := range m.projectsWithTasks {
 					if pwt.Project.ID == item.project.ID {
-						if len(pwt.Tasks) == 1 {
+						if len(pwt.Tasks) == 0 {
+							// No tasks available for this project
+							m.statusMessage = "No tasks available for this project"
+							m.selectedProject = nil
+							return m, nil
+						} else if len(pwt.Tasks) == 1 {
 							// Only one task, skip task selection
 							m.selectedTask = &pwt.Tasks[0]
 							// TODO: Move to notes input view when implemented
