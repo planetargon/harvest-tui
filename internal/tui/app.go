@@ -27,6 +27,8 @@ const (
 	ViewSelectProject
 	// ViewSelectTask is the task selection view when creating a new time entry.
 	ViewSelectTask
+	// ViewNewEntry is the unified new entry form view.
+	ViewNewEntry
 	// ViewEditEntry is the view for editing an existing time entry.
 	ViewEditEntry
 	// ViewConfirmDelete is the confirmation view when deleting a time entry.
@@ -58,11 +60,12 @@ type Model struct {
 	selectedEntryIndex int
 
 	// New entry creation state
-	selectedProject  *harvest.Project
-	selectedTask     *harvest.Task
-	newEntryNotes    string
-	newEntryHours    string
-	newEntryBillable bool
+	selectedProject      *harvest.Project
+	selectedTask         *harvest.Task
+	newEntryNotes        string
+	newEntryHours        string
+	newEntryBillable     bool
+	newEntryCurrentField int // 0=project, 1=task, 2=notes, 3=duration, 4=billable
 
 	// Edit entry state
 	editingEntry     *harvest.TimeEntry
@@ -280,6 +283,8 @@ func (m Model) View() string {
 		return m.renderProjectSelectView()
 	case ViewSelectTask:
 		return m.renderTaskSelectView()
+	case ViewNewEntry:
+		return m.renderNewEntryModal()
 	case ViewEditEntry:
 		return m.renderEditView()
 	case ViewConfirmDelete:
@@ -321,6 +326,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleProjectSelectKeys(msg)
 	case ViewSelectTask:
 		return m.handleTaskSelectKeys(msg)
+	case ViewNewEntry:
+		return m.handleNewEntryKeys(msg)
 	case ViewEditEntry:
 		return m.handleEditViewKeys(msg)
 	case ViewConfirmDelete:
@@ -1147,10 +1154,30 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.New):
 		if len(m.projectsWithTasks) > 0 {
-			m.currentView = ViewSelectProject
+			m.currentView = ViewNewEntry
 			m.clearEditState()
+			// Initialize the new entry form
+			m.newEntryCurrentField = 0
+			m.newEntryNotes = ""
+			m.newEntryHours = "0:00"
+			m.newEntryBillable = true
+			m.selectedProject = nil
+			m.selectedTask = nil
+
+			// Initialize text inputs for new entry
+			notesInput := textinput.New()
+			notesInput.Placeholder = "Enter notes (optional)"
+			notesInput.Width = 50
+			m.notesInput = &notesInput
+
+			durationInput := textinput.New()
+			durationInput.SetValue("0:00")
+			durationInput.Placeholder = "Enter duration (e.g., 1:30)"
+			durationInput.Width = 20
+			m.durationInput = &durationInput
+
 			m.updateProjectList()
-			m.projectList.SetSize(m.width, m.height-8) // Account for header and instructions
+			m.projectList.SetSize(m.width-10, min(len(m.projectList.Items()), 10))
 			return m, nil
 		} else {
 			m.statusMessage = "No projects available. Please check your Harvest configuration."
@@ -1239,7 +1266,13 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "esc":
-		// Cancel project selection and return to main list
+		// Check if we're coming from new entry form
+		if m.newEntryCurrentField >= 0 && m.newEntryCurrentField <= 4 {
+			// Return to new entry form
+			m.currentView = ViewNewEntry
+			return m, nil
+		}
+		// Otherwise, cancel project selection and return to main list
 		m.currentView = ViewList
 		m.selectedProject = nil
 		m.selectedTask = nil
@@ -1735,4 +1768,290 @@ func (m Model) updateTimeEntry() tea.Cmd {
 
 		return timeEntryUpdatedMsg{entry: entry}
 	}
+}
+
+// renderNewEntryModal renders the new entry form as a modal overlay
+func (m Model) renderNewEntryModal() string {
+	// First render the background (list view)
+	background := m.renderStyledListView()
+
+	// Modal dimensions
+	modalWidth := 60
+	modalHeight := 20
+
+	// Center the modal
+	startX := (m.width - modalWidth) / 2
+	startY := (m.height - modalHeight) / 2
+
+	// Create modal content
+	modalContent := m.renderNewEntryForm(modalWidth)
+
+	// Create overlay effect by rendering the modal on top
+	// For simplicity, we'll just return the modal form
+	// In a more sophisticated implementation, we'd overlay it on the background
+	return m.renderModalOverlay(background, modalContent, startX, startY, modalWidth, modalHeight)
+}
+
+// renderModalOverlay overlays modal content on background
+func (m Model) renderModalOverlay(background, modal string, x, y, width, height int) string {
+	// For now, just return the modal with a dimmed indication
+	// A full implementation would blend the two views
+	return modal
+}
+
+// renderNewEntryForm renders the new entry form content
+func (m Model) renderNewEntryForm(width int) string {
+	styles := DefaultStyles()
+
+	// Header
+	header := styles.Header.Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			styles.Title.Render("New Time Entry"),
+		),
+	)
+
+	// Build field views
+	var fieldViews []string
+
+	// Project field
+	projectLabel := "Project:"
+	if m.newEntryCurrentField == 0 {
+		projectLabel = styles.HighlightText.Render("▶ Project:")
+	} else {
+		projectLabel = styles.SecondaryText.Render("  Project:")
+	}
+	projectValue := "(none selected)"
+	if m.selectedProject != nil {
+		projectValue = fmt.Sprintf("%s → %s", m.selectedProject.Client.Name, m.selectedProject.Name)
+	}
+	fieldViews = append(fieldViews, lipgloss.JoinHorizontal(lipgloss.Left, projectLabel, " ", projectValue))
+
+	// Task field
+	taskLabel := "Task:"
+	if m.newEntryCurrentField == 1 {
+		taskLabel = styles.HighlightText.Render("▶ Task:")
+	} else {
+		taskLabel = styles.SecondaryText.Render("  Task:")
+	}
+	taskValue := "(none selected)"
+	if m.selectedTask != nil {
+		taskValue = m.selectedTask.Name
+	}
+	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, taskLabel, " ", taskValue))
+
+	// Notes field
+	notesLabel := "Notes:"
+	if m.newEntryCurrentField == 2 {
+		notesLabel = styles.HighlightText.Render("▶ Notes:")
+	} else {
+		notesLabel = styles.SecondaryText.Render("  Notes:")
+	}
+	var notesView string
+	if m.notesInput != nil && m.newEntryCurrentField == 2 {
+		m.notesInput.Focus()
+		notesView = m.notesInput.View()
+	} else if m.notesInput != nil {
+		m.notesInput.Blur()
+		notesView = m.notesInput.View()
+	} else {
+		notesView = m.newEntryNotes
+	}
+	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, notesLabel, " ", notesView))
+
+	// Duration field
+	durationLabel := "Duration:"
+	if m.newEntryCurrentField == 3 {
+		durationLabel = styles.HighlightText.Render("▶ Duration:")
+	} else {
+		durationLabel = styles.SecondaryText.Render("  Duration:")
+	}
+	var durationView string
+	if m.durationInput != nil && m.newEntryCurrentField == 3 {
+		m.durationInput.Focus()
+		durationView = m.durationInput.View()
+	} else if m.durationInput != nil {
+		m.durationInput.Blur()
+		durationView = m.durationInput.View()
+	} else {
+		durationView = m.newEntryHours
+	}
+	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, durationLabel, " ", durationView))
+
+	// Billable field
+	billableLabel := "Billable:"
+	if m.newEntryCurrentField == 4 {
+		billableLabel = styles.HighlightText.Render("▶ Billable:")
+	} else {
+		billableLabel = styles.SecondaryText.Render("  Billable:")
+	}
+	billableStatus := "[ ] Non-billable"
+	if m.newEntryBillable {
+		billableStatus = "[x] Billable"
+	}
+	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, billableLabel, " ", billableStatus))
+
+	fields := lipgloss.JoinVertical(lipgloss.Left, fieldViews...)
+
+	// Instructions
+	instructions := styles.SecondaryText.Render("Tab/Shift+Tab to navigate • Enter on project/task to select • Space/B for billable • Ctrl+S to save • Esc to cancel")
+
+	// Status message if any
+	statusMsg := ""
+	if m.statusMessage != "" {
+		statusMsg = styles.ErrorText.Render(m.statusMessage)
+	}
+
+	// Create modal box
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		fields,
+		"",
+		instructions,
+		statusMsg,
+	)
+
+	// Style the modal with border and background
+	modal := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(AccentColor).
+		Padding(1, 2).
+		Width(width - 4).
+		Background(lipgloss.AdaptiveColor{Light: "#FAFAFA", Dark: "#1A1A1A"}).
+		Render(content)
+
+	return modal
+}
+
+// handleNewEntryKeys handles key presses in the new entry form
+func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg.String() {
+	case "esc":
+		// Cancel and return to main list
+		m.currentView = ViewList
+		m.clearEditState()
+		return m, nil
+
+	case "tab":
+		// Move to next field
+		m.newEntryCurrentField = (m.newEntryCurrentField + 1) % 5
+		// Update focus for text inputs
+		if m.newEntryCurrentField == 2 && m.notesInput != nil {
+			m.notesInput.Focus()
+			if m.durationInput != nil {
+				m.durationInput.Blur()
+			}
+		} else if m.newEntryCurrentField == 3 && m.durationInput != nil {
+			m.durationInput.Focus()
+			if m.notesInput != nil {
+				m.notesInput.Blur()
+			}
+		} else {
+			// Not on a text field, blur both
+			if m.notesInput != nil {
+				m.notesInput.Blur()
+			}
+			if m.durationInput != nil {
+				m.durationInput.Blur()
+			}
+		}
+		return m, nil
+
+	case "shift+tab":
+		// Move to previous field
+		m.newEntryCurrentField = (m.newEntryCurrentField - 1 + 5) % 5
+		// Update focus for text inputs
+		if m.newEntryCurrentField == 2 && m.notesInput != nil {
+			m.notesInput.Focus()
+			if m.durationInput != nil {
+				m.durationInput.Blur()
+			}
+		} else if m.newEntryCurrentField == 3 && m.durationInput != nil {
+			m.durationInput.Focus()
+			if m.notesInput != nil {
+				m.notesInput.Blur()
+			}
+		} else {
+			// Not on a text field, blur both
+			if m.notesInput != nil {
+				m.notesInput.Blur()
+			}
+			if m.durationInput != nil {
+				m.durationInput.Blur()
+			}
+		}
+		return m, nil
+
+	case "enter":
+		// Handle enter based on current field
+		switch m.newEntryCurrentField {
+		case 0: // Project field
+			// Open project selection
+			m.currentView = ViewSelectProject
+			m.updateProjectList()
+			return m, nil
+		case 1: // Task field
+			if m.selectedProject != nil {
+				// Find tasks for selected project
+				for _, pwt := range m.projectsWithTasks {
+					if pwt.Project.ID == m.selectedProject.ID {
+						if len(pwt.Tasks) > 0 {
+							m.currentView = ViewSelectTask
+							m.updateTaskList(pwt.Tasks)
+						}
+						break
+					}
+				}
+			}
+			return m, nil
+		default:
+			// On other fields, treat enter as save
+			return m, m.createTimeEntry()
+		}
+
+	case "ctrl+s":
+		// Save entry
+		// Validate required fields
+		if m.selectedProject == nil || m.selectedTask == nil {
+			m.statusMessage = "Please select a project and task"
+			return m, nil
+		}
+
+		// Store current values from inputs
+		if m.notesInput != nil {
+			m.newEntryNotes = m.notesInput.Value()
+		}
+		if m.durationInput != nil {
+			m.newEntryHours = m.durationInput.Value()
+		}
+
+		// Validate duration
+		if _, err := domain.ParseDuration(m.newEntryHours); err != nil {
+			m.statusMessage = "Invalid duration format. Use HH:MM (e.g., 1:30)"
+			return m, nil
+		}
+
+		return m, m.createTimeEntry()
+
+	case " ", "b":
+		// Toggle billable if on billable field
+		if m.newEntryCurrentField == 4 {
+			m.newEntryBillable = !m.newEntryBillable
+		}
+		return m, nil
+
+	default:
+		// Pass to text inputs if focused
+		if m.newEntryCurrentField == 2 && m.notesInput != nil {
+			*m.notesInput, cmd = m.notesInput.Update(msg)
+			m.newEntryNotes = m.notesInput.Value()
+		} else if m.newEntryCurrentField == 3 && m.durationInput != nil {
+			*m.durationInput, cmd = m.durationInput.Update(msg)
+			m.newEntryHours = m.durationInput.Value()
+		}
+	}
+
+	return m, cmd
 }
