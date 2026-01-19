@@ -191,6 +191,7 @@ type Client struct {
 	accountID   string
 	accessToken string
 	httpClient  *http.Client
+	userID      int // ID of the authenticated user
 }
 
 // NewClient creates a new Harvest API client with the given credentials.
@@ -202,6 +203,7 @@ func NewClient(accountID, accessToken string) *Client {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		userID: 0, // Will be set when ValidateAuth is called
 	}
 }
 
@@ -213,6 +215,16 @@ func (c *Client) SetBaseURL(url string) {
 // SetHTTPClient sets a custom HTTP client (useful for testing).
 func (c *Client) SetHTTPClient(client *http.Client) {
 	c.httpClient = client
+}
+
+// SetUserID sets the user ID (useful for testing).
+func (c *Client) SetUserID(userID int) {
+	c.userID = userID
+}
+
+// GetUserID returns the current user ID.
+func (c *Client) GetUserID() int {
+	return c.userID
 }
 
 // Get performs a GET request to the specified path.
@@ -270,7 +282,7 @@ func (c *Client) setHeaders(req *http.Request, hasBody bool) {
 }
 
 // ValidateAuth validates the credentials by calling GET /v2/users/me.
-// Returns the authenticated user on success.
+// Returns the authenticated user on success and stores the user ID.
 // API Reference: https://help.getharvest.com/api-v2/users-api/users/users/#retrieve-the-currently-authenticated-user
 func (c *Client) ValidateAuth() (*User, error) {
 	resp, err := c.Get("/v2/users/me")
@@ -287,6 +299,9 @@ func (c *Client) ValidateAuth() (*User, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	// Store the user ID for filtering time entries
+	c.userID = user.ID
 
 	return &user, nil
 }
@@ -376,7 +391,8 @@ func (c *Client) FetchTimeEntries(date string) ([]TimeEntry, error) {
 	page := 1
 
 	for {
-		path := fmt.Sprintf("/v2/time_entries?from=%s&to=%s&page=%d", date, date, page)
+		// Filter by user_id to only get current user's entries
+		path := fmt.Sprintf("/v2/time_entries?from=%s&to=%s&user_id=%d&page=%d", date, date, c.userID, page)
 		resp, err := c.Get(path)
 		if err != nil {
 			return nil, fmt.Errorf("network request failed: %w", err)
