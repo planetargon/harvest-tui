@@ -124,6 +124,7 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		fetchTimeEntriesCmd(m.harvestClient, m.currentDate),
 		fetchProjectsWithTasksCmd(m.harvestClient),
+		tickCmd(), // Start the ticker for real-time updates
 	)
 }
 
@@ -148,7 +149,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorMessage = ""
 		}
 		m.loading = false
+		
+		// If there's a running timer, continue ticking
+		if m.hasRunningTimer() {
+			return m, tickCmd()
+		}
 		return m, nil
+	
+	case tickMsg:
+		// Check if we have a running timer
+		if m.hasRunningTimer() && m.currentView == ViewList && !m.loading {
+			// Fetch updated time entries to get the latest hours
+			return m, tea.Batch(
+				fetchTimeEntriesCmd(m.harvestClient, m.currentDate),
+				tickCmd(), // Continue ticking
+			)
+		}
+		// If no running timer or not in list view, just continue ticking
+		return m, tickCmd()
 
 	case projectsWithTasksFetchedMsg:
 		if msg.err != nil {
@@ -171,6 +189,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.statusMessage = "Timer started successfully"
+			// Start ticking for real-time updates
+			return m, tickCmd()
 		}
 		return m, nil
 
@@ -1400,6 +1420,9 @@ type timeEntriesFetchedMsg struct {
 	err     error
 }
 
+// tickMsg is sent periodically to update running timers
+type tickMsg time.Time
+
 type projectsWithTasksFetchedMsg struct {
 	projectsWithTasks []harvest.ProjectWithTasks
 	err               error
@@ -1476,6 +1499,23 @@ func deleteTimeEntryCmd(client *harvest.Client, entryID int) tea.Cmd {
 		err := client.DeleteTimeEntry(entryID)
 		return timeEntryDeletedMsg{entryID: entryID, err: err}
 	}
+}
+
+// tickCmd returns a command that sends a tick message after a delay
+func tickCmd() tea.Cmd {
+	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+// hasRunningTimer checks if any time entry has a running timer
+func (m Model) hasRunningTimer() bool {
+	for _, entry := range m.timeEntries {
+		if entry.IsRunning {
+			return true
+		}
+	}
+	return false
 }
 
 // createTimeEntry creates a new time entry and returns a command
