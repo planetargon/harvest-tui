@@ -19,12 +19,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Validate configuration
-	if err := cfg.Validate(); err != nil {
-		fmt.Printf("Configuration error: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Load application state
 	appState, err := state.Load()
 	if err != nil {
@@ -40,6 +34,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Authentication failed: %v\n", err)
 		fmt.Println("Please check your Harvest credentials in ~/.config/harvest-tui/config.toml")
+		fmt.Printf("\nTo get started, set up your Harvest API credentials:\n%s\n", config.SetupInstructionsURL)
 		os.Exit(1)
 	}
 
