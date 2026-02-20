@@ -731,9 +731,14 @@ func (m Model) renderEditView() string {
 
 	footerKeys := []string{
 		RenderKeybinding("tab", "next field"),
-		RenderKeybinding("enter", "save"),
-		RenderKeybinding("esc", "cancel"),
 	}
+	if m.editCurrentField == 0 {
+		footerKeys = append(footerKeys, RenderKeybinding("enter", "select"))
+	}
+	footerKeys = append(footerKeys,
+		RenderKeybinding("ctrl+s", "save"),
+		RenderKeybinding("esc", "cancel"),
+	)
 
 	return m.buildShellBox(content, width, footerKeys)
 }
@@ -1276,8 +1281,10 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.setStatusMessage("No tasks found for this project")
 				}
 			}
-			return m, nil
 		}
+		return m, nil
+
+	case "ctrl+s":
 		// Save changes
 		return m, m.updateTimeEntry()
 
@@ -1730,10 +1737,14 @@ func (m Model) renderNewEntryModal() string {
 
 	footerKeys := []string{
 		RenderKeybinding("tab", "next"),
-		RenderKeybinding("enter", "select/save"),
+	}
+	if m.newEntryCurrentField <= 1 {
+		footerKeys = append(footerKeys, RenderKeybinding("enter", "select"))
+	}
+	footerKeys = append(footerKeys,
 		RenderKeybinding("ctrl+s", "save"),
 		RenderKeybinding("esc", "cancel"),
-	}
+	)
 
 	return m.buildShellBox(content, width, footerKeys)
 }
@@ -1821,10 +1832,8 @@ func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, nil
-		default:
-			// On other fields, treat enter as save
-			return m, m.createTimeEntry()
 		}
+		return m, nil
 
 	case "ctrl+s":
 		// Save entry

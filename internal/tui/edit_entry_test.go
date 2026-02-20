@@ -528,4 +528,90 @@ func TestEditEntry(t *testing.T) {
 			t.Errorf("expected ViewSelectTask after enter on task field, got %v", m.currentView)
 		}
 	})
+
+	t.Run("given edit view when enter pressed on notes field then does not save", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewEditEntry
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 10, Name: "Development"}
+		model.editCurrentField = 1 // Notes field
+		model.editNotes = "Some notes"
+		model.editHours = "1:30"
+
+		notesInput := textinput.New()
+		model.editNotesInput = &notesInput
+		durationInput := textinput.New()
+		model.editDurationInput = &durationInput
+
+		msg := tea.KeyMsg{Type: tea.KeyEnter}
+		updatedModel, cmd := model.Update(msg)
+
+		m := updatedModel.(Model)
+		if m.currentView != ViewEditEntry {
+			t.Errorf("expected to stay on ViewEditEntry, got %v", m.currentView)
+		}
+		if cmd != nil {
+			t.Error("expected no command (no save), but got one")
+		}
+	})
+
+	t.Run("given edit view when enter pressed on duration field then does not save", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewEditEntry
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 10, Name: "Development"}
+		model.editCurrentField = 2 // Duration field
+		model.editNotes = "Some notes"
+		model.editHours = "1:30"
+
+		notesInput := textinput.New()
+		model.editNotesInput = &notesInput
+		durationInput := textinput.New()
+		model.editDurationInput = &durationInput
+
+		msg := tea.KeyMsg{Type: tea.KeyEnter}
+		updatedModel, cmd := model.Update(msg)
+
+		m := updatedModel.(Model)
+		if m.currentView != ViewEditEntry {
+			t.Errorf("expected to stay on ViewEditEntry, got %v", m.currentView)
+		}
+		if cmd != nil {
+			t.Error("expected no command (no save), but got one")
+		}
+	})
+
+	t.Run("given edit view when ctrl+s pressed then saves entry", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewEditEntry
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 10, Name: "Development"}
+		model.editCurrentField = 1 // Notes field - should save from any field
+		model.editNotes = "Updated notes"
+		model.editHours = "2:00"
+
+		notesInput := textinput.New()
+		model.editNotesInput = &notesInput
+		durationInput := textinput.New()
+		model.editDurationInput = &durationInput
+
+		msg := tea.KeyMsg{Type: tea.KeyCtrlS}
+		_, cmd := model.Update(msg)
+
+		if cmd == nil {
+			t.Error("expected a command to save entry, got nil")
+		}
+	})
 }
