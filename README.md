@@ -6,15 +6,16 @@ A terminal-based time tracking application that connects to the [Harvest API v2]
 
 ### Time Sheet view
 
-<img width="649" height="349" alt="image" src="https://github.com/user-attachments/assets/364c6784-8c2e-4779-be8c-8794c0038917" />
+<img width="807" height="611" alt="image" src="https://github.com/user-attachments/assets/c2700762-410e-41f5-9a50-d28836ff7242" />
+
 
 ### Add/Edit Time Entry
+
 <img width="644" height="252" alt="image" src="https://github.com/user-attachments/assets/380d8eeb-e67e-4864-b676-7dbdb0f7f292" />
 
 ### Help Menu
-<img width="652" height="428" alt="image" src="https://github.com/user-attachments/assets/c3c7720f-e66c-45a3-83a2-d81b4bde664d" />
 
-
+<img width="807" height="611" alt="image" src="https://github.com/user-attachments/assets/dda8f9db-c3dc-455e-ba90-898d9bb003e9" />
 
 ## Installation
 
