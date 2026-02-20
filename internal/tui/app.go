@@ -74,6 +74,7 @@ type Model struct {
 	editHours        string
 	editBillable     bool
 	editCurrentField int // 0=task, 1=notes, 2=duration
+	pendingTaskEdit  bool
 
 	// UI state
 	loading           bool
@@ -194,9 +195,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case projectsWithTasksFetchedMsg:
 		if msg.err != nil {
 			m.errorMessage = "Failed to fetch projects: " + msg.err.Error()
+			m.pendingTaskEdit = false
 		} else {
 			m.projectsWithTasks = msg.projectsWithTasks
 			m.errorMessage = ""
+
+			// If user requested task edit while projects were loading, open it now
+			if m.pendingTaskEdit && m.editingEntry != nil && m.currentView == ViewEditEntry {
+				m.pendingTaskEdit = false
+				for _, pwt := range m.projectsWithTasks {
+					if pwt.Project.ID == m.editingEntry.Project.ID {
+						m.selectedProject = &pwt.Project
+						m.updateTaskList(pwt.Tasks)
+						if m.editNotesInput != nil {
+							m.editNotesInput.Blur()
+						}
+						if m.editDurationInput != nil {
+							m.editDurationInput.Blur()
+						}
+						m.currentView = ViewSelectTask
+						return m, nil
+					}
+				}
+				m.setStatusMessage("No tasks found for this project")
+			}
 		}
 		return m, nil
 
@@ -385,6 +407,7 @@ func (m *Model) clearEditState() {
 	m.editNotesInput = nil
 	m.editDurationInput = nil
 	m.editCurrentField = 0
+	m.pendingTaskEdit = false
 }
 
 // formatHoursSimple formats hours as H:MM format.
@@ -1244,8 +1267,9 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Open task selection for the current project
 			if m.editingEntry != nil {
 				if len(m.projectsWithTasks) == 0 {
-					m.setStatusMessage("Loading project tasks, please try again...")
-					return m, nil
+					m.pendingTaskEdit = true
+					m.setStatusMessage("Loading tasks...")
+					return m, fetchProjectsWithTasksCmd(m.harvestClient)
 				}
 				// Find the project's tasks
 				var found bool

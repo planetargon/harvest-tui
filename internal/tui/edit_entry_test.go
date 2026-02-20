@@ -245,7 +245,7 @@ func TestEditEntry(t *testing.T) {
 		}
 	})
 
-	t.Run("given edit view when enter pressed on task field before projects loaded then shows loading message", func(t *testing.T) {
+	t.Run("given edit view when enter pressed on task field before projects loaded then sets pending and fetches", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewEditEntry
 		model.editingEntry = &harvest.TimeEntry{
@@ -258,14 +258,57 @@ func TestEditEntry(t *testing.T) {
 		// projectsWithTasks is empty (not yet loaded)
 
 		msg := tea.KeyMsg{Type: tea.KeyEnter}
-		updatedModel, _ := model.Update(msg)
+		updatedModel, cmd := model.Update(msg)
 
 		m := updatedModel.(Model)
 		if m.currentView != ViewEditEntry {
 			t.Errorf("expected to stay on ViewEditEntry, got %v", m.currentView)
 		}
-		if m.statusMessage == "" {
-			t.Error("expected a status message about loading")
+		if !m.pendingTaskEdit {
+			t.Error("expected pendingTaskEdit to be true")
+		}
+		if cmd == nil {
+			t.Error("expected a command to fetch projects")
+		}
+	})
+
+	t.Run("given pending task edit when projects arrive then opens task selection automatically", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewEditEntry
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 10, Name: "Development"}
+		model.editCurrentField = 0
+		model.pendingTaskEdit = true
+
+		notesInput := textinput.New()
+		model.editNotesInput = &notesInput
+		durationInput := textinput.New()
+		model.editDurationInput = &durationInput
+
+		// Simulate projects arriving
+		fetchedMsg := projectsWithTasksFetchedMsg{
+			projectsWithTasks: []harvest.ProjectWithTasks{
+				{
+					Project: harvest.Project{ID: 1, Name: "Website"},
+					Tasks: []harvest.Task{
+						{ID: 10, Name: "Development"},
+						{ID: 11, Name: "Design"},
+					},
+				},
+			},
+		}
+		updatedModel, _ := model.Update(fetchedMsg)
+
+		m := updatedModel.(Model)
+		if m.currentView != ViewSelectTask {
+			t.Errorf("expected ViewSelectTask after projects loaded, got %v", m.currentView)
+		}
+		if m.pendingTaskEdit {
+			t.Error("expected pendingTaskEdit to be cleared")
 		}
 	})
 
