@@ -8,26 +8,83 @@ import (
 	"github.com/planetargon/argon-harvest-tui/internal/harvest"
 )
 
-// renderStyledListView renders the main list view with proper styling.
-func (m Model) renderStyledListView() string {
-	// Calculate dimensions
-	width := 65 // Fixed width for consistent layout
+// shellWidth returns the standard box width for the shell.
+func (m Model) shellWidth() int {
+	width := 65
 	if m.width > 0 {
-		width = min(m.width-2, 80) // Cap at 80 chars wide
+		width = min(m.width-2, 80)
 	}
+	return width
+}
 
-	// Format date navigation with Tokyo Night styling
+// renderTitleBar renders the title bar with date navigation.
+func (m Model) renderTitleBar() string {
+	width := m.shellWidth()
+
 	dateStr := m.currentDate.Format("Mon, Jan 2, 2006")
 	dateNav := ArrowNavStyle.Render("◀ ") + DateStyle.Render(dateStr) + ArrowNavStyle.Render(" ▶")
 
-	// Title bar with Tokyo Night styling
 	titleText := "  " + TitleStyle.Render("🌾 Harvest Time Tracker")
 	titleSuffix := dateNav + "  "
 	spacerWidth := width - 2 - lipgloss.Width(titleText) - lipgloss.Width(titleSuffix)
 	if spacerWidth < 1 {
 		spacerWidth = 1
 	}
-	titleBar := titleText + strings.Repeat(" ", spacerWidth) + titleSuffix
+	return titleText + strings.Repeat(" ", spacerWidth) + titleSuffix
+}
+
+// buildShellBox wraps content in a styled box border with parameterized footer keybindings.
+func (m Model) buildShellBox(content string, width int, footerKeys []string) string {
+	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
+
+	// Top border
+	top := "┌" + strings.Repeat("─", width-2) + "┐"
+
+	// Content lines with side borders
+	lines := strings.Split(content, "\n")
+	var boxedLines []string
+	boxedLines = append(boxedLines, borderStyle.Render(top))
+
+	for _, line := range lines {
+		lineWidth := lipgloss.Width(line)
+		padded := line
+		if lineWidth < width-2 {
+			padded = line + strings.Repeat(" ", width-2-lineWidth)
+		} else if lineWidth > width-2 {
+			padded = truncateStyledLine(line, width-2)
+		}
+		boxedLines = append(boxedLines, borderStyle.Render("│")+padded+borderStyle.Render("│"))
+	}
+
+	// Footer with keybindings
+	footerSeparator := borderStyle.Render("├" + strings.Repeat("─", width-2) + "┤")
+
+	footerText := " " + strings.Join(footerKeys, " ")
+	footerWidth := lipgloss.Width(footerText)
+	if footerWidth > width-2 {
+		footerText = truncateStyledLine(footerText, width-2)
+	}
+	footerWidth = lipgloss.Width(footerText)
+	if footerWidth < width-2 {
+		footerText = footerText + strings.Repeat(" ", width-2-footerWidth)
+	}
+
+	// Bottom border
+	bottom := borderStyle.Render("└" + strings.Repeat("─", width-2) + "┘")
+
+	boxedLines = append(boxedLines, footerSeparator)
+	boxedLines = append(boxedLines, borderStyle.Render("│")+footerText+borderStyle.Render("│"))
+	boxedLines = append(boxedLines, bottom)
+
+	return strings.Join(boxedLines, "\n")
+}
+
+// renderStyledListView renders the main list view with proper styling.
+func (m Model) renderStyledListView() string {
+	// Calculate dimensions
+	width := m.shellWidth()
+
+	titleBar := m.renderTitleBar()
 
 	// Calculate daily total with accent color (add elapsed time for running entry)
 	totalHours := 0.0
@@ -128,36 +185,9 @@ func (m Model) renderStyledListView() string {
 	return m.wrapInStyledBox(strings.Join(contentLines, "\n"), width)
 }
 
-// wrapInStyledBox wraps content in a styled box border.
-func (m Model) wrapInStyledBox(content string, width int) string {
-	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
-
-	// Top border
-	top := "┌" + strings.Repeat("─", width-2) + "┐"
-
-	// Content lines with side borders
-	lines := strings.Split(content, "\n")
-	var boxedLines []string
-	boxedLines = append(boxedLines, borderStyle.Render(top))
-
-	for _, line := range lines {
-		// Pad line to width
-		lineWidth := lipgloss.Width(line)
-		padded := line
-		if lineWidth < width-2 {
-			padded = line + strings.Repeat(" ", width-2-lineWidth)
-		} else if lineWidth > width-2 {
-			// Truncate if too long
-			padded = truncateStyledLine(line, width-2)
-		}
-		boxedLines = append(boxedLines, borderStyle.Render("│")+padded+borderStyle.Render("│"))
-	}
-
-	// Footer with keybindings using Tokyo Night styling
-	footerSeparator := borderStyle.Render("├" + strings.Repeat("─", width-2) + "┤")
-
-	// Build styled keybindings
-	keybindings := []string{
+// listViewFooterKeys returns the standard footer keybindings for the list view.
+func listViewFooterKeys() []string {
+	return []string{
 		RenderKeybinding("n", "new"),
 		RenderKeybinding("e", "edit"),
 		RenderKeybinding("s", "start/stop"),
@@ -165,21 +195,11 @@ func (m Model) wrapInStyledBox(content string, width int) string {
 		RenderKeybinding("?", "help"),
 		RenderKeybinding("q", "quit"),
 	}
-	footerText := " " + strings.Join(keybindings, " ")
-	footerWidth := lipgloss.Width(footerText)
-	if footerWidth < width-2 {
-		footerPadded := footerText + strings.Repeat(" ", width-2-footerWidth)
-		footerText = footerPadded
-	}
+}
 
-	// Bottom border
-	bottom := borderStyle.Render("└" + strings.Repeat("─", width-2) + "┘")
-
-	boxedLines = append(boxedLines, footerSeparator)
-	boxedLines = append(boxedLines, borderStyle.Render("│")+footerText+borderStyle.Render("│"))
-	boxedLines = append(boxedLines, bottom)
-
-	return strings.Join(boxedLines, "\n")
+// wrapInStyledBox wraps content in a styled box border with list view footer keys.
+func (m Model) wrapInStyledBox(content string, width int) string {
+	return m.buildShellBox(content, width, listViewFooterKeys())
 }
 
 // renderStyledTimeEntry renders a single time entry with Tokyo Night styling.

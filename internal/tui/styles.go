@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -36,12 +35,6 @@ var (
 // Tokyo Night Component Styles
 var (
 	// Base text styles
-	BaseText = lipgloss.NewStyle().
-			Foreground(primaryText)
-
-	SecondaryText = lipgloss.NewStyle().
-			Foreground(mutedText)
-
 	MutedText = lipgloss.NewStyle().
 			Foreground(mutedText)
 
@@ -130,23 +123,12 @@ var (
 				MarginLeft(1)
 
 	// Summary bar styles
-	SummaryBar = lipgloss.NewStyle().
-			Background(cardBg).
-			Padding(0, 2).
-			MarginTop(1).
-			MarginBottom(1)
-
 	TotalLabel = lipgloss.NewStyle().
 			Foreground(mutedText)
 
 	TotalValue = lipgloss.NewStyle().
 			Foreground(accentColor).
 			Bold(true)
-
-	RunningBadge = lipgloss.NewStyle().
-			Background(selectedBg).
-			Foreground(mutedText).
-			Padding(0, 1)
 
 	// Keybinding styles
 	KeyStyle = lipgloss.NewStyle().
@@ -169,214 +151,7 @@ var (
 			Italic(true).
 			Padding(2, 0).
 			Align(lipgloss.Center)
-
-	// Delete confirmation
-	ConfirmBox = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(pinkColor).
-			Padding(1, 2).
-			Width(50)
-
-	ConfirmTitle = lipgloss.NewStyle().
-			Foreground(pinkColor).
-			Bold(true)
-
-	// Help overlay
-	HelpBox = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(accentColor).
-		Padding(1, 2).
-		Width(40)
-
-	HelpTitleStyle = lipgloss.NewStyle().
-			Foreground(accentColor).
-			Bold(true).
-			MarginBottom(1)
-
-	HelpKeyStyle = lipgloss.NewStyle().
-			Foreground(accentColor).
-			Width(12)
-
-	HelpDescStyle = lipgloss.NewStyle().
-			Foreground(primaryText)
-
-	// Input styles
-	FocusedInput = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(accentColor)
-
-	UnfocusedInput = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(borderColor)
 )
-
-// Styles defines all the styling for the TUI components.
-type Styles struct {
-	// Base styles
-	App     lipgloss.Style
-	Header  lipgloss.Style
-	Footer  lipgloss.Style
-	Content lipgloss.Style
-
-	// Navigation styles
-	Title    lipgloss.Style
-	Subtitle lipgloss.Style
-
-	// List styles
-	ListItem     lipgloss.Style
-	SelectedItem lipgloss.Style
-	RunningItem  lipgloss.Style
-	LockedItem   lipgloss.Style
-
-	// Text styles
-	PrimaryText   lipgloss.Style
-	SecondaryText lipgloss.Style
-	MutedText     lipgloss.Style
-	ErrorText     lipgloss.Style
-	SuccessText   lipgloss.Style
-	WarningText   lipgloss.Style
-	HighlightText lipgloss.Style
-
-	// Component styles
-	Card         lipgloss.Style
-	SelectedCard lipgloss.Style
-	Input        lipgloss.Style
-	Button       lipgloss.Style
-	ActiveButton lipgloss.Style
-
-	// Status indicators
-	StatusBar        lipgloss.Style
-	RunningIndicator lipgloss.Style
-	LockedIndicator  lipgloss.Style
-
-	// Help styles
-	HelpKey   lipgloss.Style
-	HelpValue lipgloss.Style
-	HelpTitle lipgloss.Style
-
-	// Dialog styles
-	Dialog       lipgloss.Style
-	DialogTitle  lipgloss.Style
-	DialogButton lipgloss.Style
-
-	// Spinner and loading
-	Spinner lipgloss.Style
-}
-
-// DefaultStyles returns the default styling configuration using the Tokyo Night theme.
-func DefaultStyles() Styles {
-	return Styles{
-		// Base styles
-		App:     BaseText,
-		Header:  BaseText.Padding(0, 1),
-		Footer:  MutedText.Padding(0, 1),
-		Content: BaseText.Padding(0, 1),
-
-		// Navigation styles
-		Title:    TitleStyle,
-		Subtitle: SecondaryText,
-
-		// List styles
-		ListItem: BaseText,
-		SelectedItem: BaseText.
-			Inherit(SelectedEntry),
-		RunningItem: BaseText.
-			Foreground(accentColor),
-		LockedItem: LockedEntryStyle,
-
-		// Text styles
-		PrimaryText:   BaseText,
-		SecondaryText: SecondaryText,
-		MutedText:     MutedText,
-		ErrorText:     ErrorText,
-		SuccessText:   SuccessText,
-		WarningText:   WarningText,
-		HighlightText: AccentText,
-
-		// Component styles
-		Card: BaseText.
-			Padding(1, 2).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(borderColor).
-			Background(cardBg),
-
-		SelectedCard: SelectedEntry,
-
-		Input: UnfocusedInput.
-			Padding(0, 1),
-
-		Button: BaseText.
-			Padding(0, 2).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(borderColor).
-			Background(cardBg),
-
-		ActiveButton: BaseText.
-			Padding(0, 2).
-			Background(accentColor).
-			Foreground(primaryText).
-			Bold(true),
-
-		// Status indicators
-		StatusBar:        SummaryBar,
-		RunningIndicator: RunningDot,
-		LockedIndicator:  LockedIcon,
-
-		// Help styles
-		HelpKey:   HelpKeyStyle,
-		HelpValue: HelpDescStyle,
-		HelpTitle: HelpTitleStyle,
-
-		// Dialog styles
-		Dialog:       ConfirmBox,
-		DialogTitle:  ConfirmTitle,
-		DialogButton: MutedText.Padding(0, 2),
-
-		// Spinner and loading
-		Spinner: AccentText,
-	}
-}
-
-// TimeEntryStyle returns the appropriate style for a time entry based on its state.
-func (s Styles) TimeEntryStyle(isSelected, isRunning, isLocked bool) lipgloss.Style {
-	if isSelected {
-		return s.SelectedItem
-	}
-	if isRunning {
-		return s.RunningItem
-	}
-	if isLocked {
-		return s.LockedItem
-	}
-	return s.ListItem
-}
-
-// StatusIndicator returns the appropriate status indicator text and style.
-func (s Styles) StatusIndicator(isRunning, isLocked bool) (string, lipgloss.Style) {
-	if isRunning {
-		return RunningDot.Render("●") + " ", s.RunningIndicator
-	}
-	if isLocked {
-		return LockedIcon.Render("🔒") + " ", s.LockedIndicator
-	}
-	return "", s.PrimaryText
-}
-
-// FormatDuration formats a duration with appropriate styling.
-func (s Styles) FormatDuration(hours float64, isRunning bool) string {
-	formatted := formatHours(hours)
-	if isRunning {
-		return RunningDurationStyle.Render(formatted)
-	}
-	return DurationStyle.Render(formatted)
-}
-
-// formatHours formats hours as HH:MM string.
-func formatHours(hours float64) string {
-	h := int(hours)
-	m := int((hours - float64(h)) * 60)
-	return fmt.Sprintf("%d:%02d", h, m)
-}
 
 // RenderEntryPath renders the client → project → task path with proper styling.
 func RenderEntryPath(client, project, task string) string {
