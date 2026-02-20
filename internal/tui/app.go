@@ -69,10 +69,12 @@ type Model struct {
 
 	// Edit entry state
 	editingEntry     *harvest.TimeEntry
+	editTask         *harvest.Task
 	editNotes        string
 	editHours        string
 	editBillable     bool
-	editCurrentField int // 0=notes, 1=duration
+	editCurrentField int // 0=task, 1=notes, 2=duration
+	pendingTaskEdit  bool
 
 	// UI state
 	loading           bool
@@ -193,9 +195,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case projectsWithTasksFetchedMsg:
 		if msg.err != nil {
 			m.errorMessage = "Failed to fetch projects: " + msg.err.Error()
+			m.pendingTaskEdit = false
 		} else {
 			m.projectsWithTasks = msg.projectsWithTasks
 			m.errorMessage = ""
+
+			// If user requested task edit while projects were loading, open it now
+			if m.pendingTaskEdit && m.editingEntry != nil && m.currentView == ViewEditEntry {
+				m.pendingTaskEdit = false
+				if !m.openTaskSelectionForEdit() {
+					m.setStatusMessage("No tasks found for this project")
+				}
+			}
 		}
 		return m, nil
 
@@ -377,12 +388,14 @@ func (m *Model) clearEditState() {
 	m.notesInput = nil
 	m.durationInput = nil
 	m.editingEntry = nil
+	m.editTask = nil
 	m.editNotes = ""
 	m.editHours = ""
 	m.editBillable = true
 	m.editNotesInput = nil
 	m.editDurationInput = nil
 	m.editCurrentField = 0
+	m.pendingTaskEdit = false
 }
 
 // formatHoursSimple formats hours as H:MM format.
@@ -543,31 +556,18 @@ func (m *Model) updateProjectList() {
 	}
 
 	// Add all projects sorted by client then project name
-	var nonRecentProjects []harvest.ProjectWithTasks
-	for _, pwt := range m.projectsWithTasks {
-		// Skip if already in recents
-		isRecent := false
-		for _, recent := range m.appState.Recents {
-			if pwt.Project.ID == recent.ProjectID && pwt.Project.Client.ID == recent.ClientID {
-				isRecent = true
-				break
-			}
-		}
-		if !isRecent {
-			nonRecentProjects = append(nonRecentProjects, pwt)
-		}
-	}
+	allProjects := make([]harvest.ProjectWithTasks, len(m.projectsWithTasks))
+	copy(allProjects, m.projectsWithTasks)
 
-	// Sort non-recent projects by client name then project name
-	sort.Slice(nonRecentProjects, func(i, j int) bool {
-		if nonRecentProjects[i].Project.Client.Name != nonRecentProjects[j].Project.Client.Name {
-			return nonRecentProjects[i].Project.Client.Name < nonRecentProjects[j].Project.Client.Name
+	sort.Slice(allProjects, func(i, j int) bool {
+		if allProjects[i].Project.Client.Name != allProjects[j].Project.Client.Name {
+			return allProjects[i].Project.Client.Name < allProjects[j].Project.Client.Name
 		}
-		return nonRecentProjects[i].Project.Name < nonRecentProjects[j].Project.Name
+		return allProjects[i].Project.Name < allProjects[j].Project.Name
 	})
 
-	// Add sorted non-recent projects to items
-	for _, pwt := range nonRecentProjects {
+	// Add all projects to items (including those in recents)
+	for _, pwt := range allProjects {
 		items = append(items, projectItem{
 			project: pwt.Project,
 			client:  pwt.Project.Client,
@@ -617,7 +617,12 @@ func (m Model) renderTaskSelectView() string {
 	titleBar := m.renderTitleBar()
 
 	// Breadcrumb header
-	breadcrumb := "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 2: Choose Task")
+	var breadcrumb string
+	if m.editingEntry != nil {
+		breadcrumb = "  " + AccentText.Render("Edit Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Change Task")
+	} else {
+		breadcrumb = "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 2: Choose Task")
+	}
 
 	// Show selected project
 	projectInfo := ""
@@ -652,19 +657,28 @@ func (m Model) renderEditView() string {
 	// Breadcrumb
 	breadcrumb := "  " + AccentText.Render("Edit Time Entry")
 
-	// Entry info
+	// Entry info (client → project breadcrumb, task is now an editable field)
 	info := ""
 	if m.editingEntry != nil {
-		info = "  " + MutedText.Render(fmt.Sprintf("%s → %s → %s",
+		info = "  " + MutedText.Render(fmt.Sprintf("%s → %s",
 			m.editingEntry.Client.Name,
-			m.editingEntry.Project.Name,
-			m.editingEntry.Task.Name))
+			m.editingEntry.Project.Name))
 	}
 
 	divider := "  " + RenderDividerWidth(width-4)
 
 	// Build field views
-	notesLabel := fieldLabel("Notes:", m.editCurrentField == 0)
+	taskLabel := fieldLabel("Task:", m.editCurrentField == 0)
+	taskName := ""
+	if m.editTask != nil {
+		taskName = m.editTask.Name
+	}
+	taskView := taskName
+	if m.editCurrentField == 0 {
+		taskView = taskName + MutedText.Render("  (press enter to change)")
+	}
+
+	notesLabel := fieldLabel("Notes:", m.editCurrentField == 1)
 	var notesView string
 	if m.editNotesInput != nil {
 		notesView = m.editNotesInput.View()
@@ -672,7 +686,7 @@ func (m Model) renderEditView() string {
 		notesView = m.editNotes
 	}
 
-	durationLabel := fieldLabel("Duration:", m.editCurrentField == 1)
+	durationLabel := fieldLabel("Duration:", m.editCurrentField == 2)
 	var durationView string
 	if m.editDurationInput != nil {
 		durationView = m.editDurationInput.View()
@@ -691,6 +705,8 @@ func (m Model) renderEditView() string {
 		breadcrumb,
 		info,
 		divider,
+		"",
+		"  " + taskLabel + " " + taskView,
 		"",
 		"  " + notesLabel + " " + notesView,
 		"",
@@ -1036,6 +1052,7 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.editingEntry = &selectedEntry
+			m.editTask = &harvest.Task{ID: selectedEntry.Task.ID, Name: selectedEntry.Task.Name}
 			m.editNotes = selectedEntry.Notes
 			m.editHours = formatHoursSimple(selectedEntry.Hours)
 			m.editBillable = selectedEntry.IsBillable
@@ -1044,7 +1061,6 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Initialize text inputs for editing
 			notesInput := textinput.New()
 			notesInput.SetValue(selectedEntry.Notes)
-			notesInput.Focus()
 			notesInput.Placeholder = "Enter notes (optional)"
 			notesInput.Width = 50
 			m.editNotesInput = &notesInput
@@ -1131,19 +1147,6 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if item, ok := selected.(projectItem); ok {
 				m.selectedProject = &item.project
 
-				// Check if this is a recent entry with a task already selected
-				var recentTaskID *int
-				selectedIndex := m.projectList.Index()
-				if selectedIndex < len(m.appState.Recents) {
-					// This is a recent entry (recents appear first in the list)
-					for _, recent := range m.appState.Recents {
-						if recent.ProjectID == item.project.ID && recent.ClientID == item.client.ID {
-							recentTaskID = &recent.TaskID
-							break
-						}
-					}
-				}
-
 				// Find tasks for this project
 				for _, pwt := range m.projectsWithTasks {
 					if pwt.Project.ID == item.project.ID {
@@ -1152,25 +1155,6 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 							m.setStatusMessage("No tasks available for this project")
 							m.selectedProject = nil
 							return m, nil
-						}
-
-						// If this is a recent with a task, try to use it
-						if recentTaskID != nil {
-							for i := range pwt.Tasks {
-								if pwt.Tasks[i].ID == *recentTaskID {
-									// Found the task from the recent
-									m.selectedTask = &pwt.Tasks[i]
-									// Initialize notes input
-									notesInput := textinput.New()
-									notesInput.Focus()
-									notesInput.Placeholder = "Enter notes (optional)"
-									notesInput.Width = 50
-									m.notesInput = &notesInput
-									m.currentView = ViewNotesInput
-									return m, nil
-								}
-							}
-							// Task from recent not found, fall through to show task selection
 						}
 
 						if len(pwt.Tasks) == 1 {
@@ -1206,6 +1190,13 @@ func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "esc":
+		if m.editingEntry != nil {
+			// Return to edit view when editing
+			m.currentView = ViewEditEntry
+			m.selectedProject = nil
+			m.updateEditFieldFocus()
+			return m, nil
+		}
 		// Go back to project selection
 		m.currentView = ViewSelectProject
 		m.selectedProject = nil
@@ -1216,6 +1207,14 @@ func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		selected := m.taskList.SelectedItem()
 		if selected != nil {
 			if item, ok := selected.(taskItem); ok {
+				if m.editingEntry != nil {
+					// Set editTask and return to edit view
+					m.editTask = &harvest.Task{ID: item.task.ID, Name: item.task.Name}
+					m.selectedProject = nil
+					m.currentView = ViewEditEntry
+					m.updateEditFieldFocus()
+					return m, nil
+				}
 				m.selectedTask = &item.task
 				// Initialize notes input
 				notesInput := textinput.New()
@@ -1246,54 +1245,84 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "tab":
 		// Move to next field
-		m.editCurrentField = (m.editCurrentField + 1) % 2
-		// Update focus based on current field
-		if m.editCurrentField == 0 && m.editNotesInput != nil {
-			m.editNotesInput.Focus()
-			if m.editDurationInput != nil {
-				m.editDurationInput.Blur()
-			}
-		} else if m.editCurrentField == 1 && m.editDurationInput != nil {
-			m.editDurationInput.Focus()
-			if m.editNotesInput != nil {
-				m.editNotesInput.Blur()
-			}
-		}
+		m.editCurrentField = (m.editCurrentField + 1) % 3
+		m.updateEditFieldFocus()
 		return m, nil
 
 	case "shift+tab":
 		// Move to previous field
-		m.editCurrentField = (m.editCurrentField - 1 + 2) % 2
-		// Update focus based on current field
-		if m.editCurrentField == 0 && m.editNotesInput != nil {
-			m.editNotesInput.Focus()
-			if m.editDurationInput != nil {
-				m.editDurationInput.Blur()
-			}
-		} else if m.editCurrentField == 1 && m.editDurationInput != nil {
-			m.editDurationInput.Focus()
-			if m.editNotesInput != nil {
-				m.editNotesInput.Blur()
-			}
-		}
+		m.editCurrentField = (m.editCurrentField - 1 + 3) % 3
+		m.updateEditFieldFocus()
 		return m, nil
 
 	case "enter":
+		if m.editCurrentField == 0 {
+			// Open task selection for the current project
+			if m.editingEntry != nil {
+				if len(m.projectsWithTasks) == 0 {
+					m.pendingTaskEdit = true
+					m.setStatusMessage("Loading tasks...")
+					return m, fetchProjectsWithTasksCmd(m.harvestClient)
+				}
+				if !m.openTaskSelectionForEdit() {
+					m.setStatusMessage("No tasks found for this project")
+				}
+			}
+			return m, nil
+		}
 		// Save changes
 		return m, m.updateTimeEntry()
 
 	default:
 		// Pass to the appropriate input field if it's focused
-		if m.editCurrentField == 0 && m.editNotesInput != nil {
+		if m.editCurrentField == 1 && m.editNotesInput != nil {
 			*m.editNotesInput, cmd = m.editNotesInput.Update(msg)
 			m.editNotes = m.editNotesInput.Value()
-		} else if m.editCurrentField == 1 && m.editDurationInput != nil {
+		} else if m.editCurrentField == 2 && m.editDurationInput != nil {
 			*m.editDurationInput, cmd = m.editDurationInput.Update(msg)
 			m.editHours = m.editDurationInput.Value()
 		}
 	}
 
 	return m, cmd
+}
+
+// updateEditFieldFocus updates text input focus based on the current edit field.
+func (m *Model) updateEditFieldFocus() {
+	if m.editNotesInput != nil {
+		if m.editCurrentField == 1 {
+			m.editNotesInput.Focus()
+		} else {
+			m.editNotesInput.Blur()
+		}
+	}
+	if m.editDurationInput != nil {
+		if m.editCurrentField == 2 {
+			m.editDurationInput.Focus()
+		} else {
+			m.editDurationInput.Blur()
+		}
+	}
+}
+
+// openTaskSelectionForEdit finds the editing entry's project tasks and switches to task selection.
+// Returns true if the transition succeeded, false if the project was not found.
+func (m *Model) openTaskSelectionForEdit() bool {
+	for _, pwt := range m.projectsWithTasks {
+		if pwt.Project.ID == m.editingEntry.Project.ID {
+			m.selectedProject = &pwt.Project
+			m.updateTaskList(pwt.Tasks)
+			if m.editNotesInput != nil {
+				m.editNotesInput.Blur()
+			}
+			if m.editDurationInput != nil {
+				m.editDurationInput.Blur()
+			}
+			m.currentView = ViewSelectTask
+			return true
+		}
+	}
+	return false
 }
 
 func (m Model) handleConfirmDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1583,6 +1612,11 @@ func (m Model) updateTimeEntry() tea.Cmd {
 	request := harvest.UpdateTimeEntryRequest{
 		Hours: &hours,
 		Notes: &m.editNotes,
+	}
+
+	// Include TaskID if the task was changed
+	if m.editTask != nil && m.editTask.ID != m.editingEntry.Task.ID {
+		request.TaskID = &m.editTask.ID
 	}
 
 	entryID := m.editingEntry.ID
