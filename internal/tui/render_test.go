@@ -946,3 +946,117 @@ func TestFooterKeybindings(t *testing.T) {
 		}
 	})
 }
+
+func TestStatusMessageClearedOnViewTransition(t *testing.T) {
+	t.Run("given status message on list view when navigating to new entry then message is cleared", func(t *testing.T) {
+		model := newTestModel()
+		model.currentView = ViewList
+		model.setStatusMessage("Time entry deleted successfully")
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{ID: 1, Name: "Test", Client: harvest.ProjectClient{ID: 1, Name: "Client"}},
+				Tasks:   []harvest.Task{{ID: 1, Name: "Dev"}},
+			},
+		}
+
+		// Press 'n' to go to new entry
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")}
+		updatedModel, _ := model.Update(msg)
+		m := updatedModel.(Model)
+
+		if m.currentView == ViewList {
+			t.Fatal("expected view to change from ViewList")
+		}
+		if m.statusMessage != "" {
+			t.Errorf("expected status message to be cleared on view transition, got %q", m.statusMessage)
+		}
+	})
+
+	t.Run("given status message on list view when pressing edit then message is cleared", func(t *testing.T) {
+		model := newTestModel()
+		model.currentView = ViewList
+		model.setStatusMessage("Time entry deleted successfully")
+		model.timeEntries = []harvest.TimeEntry{
+			{ID: 1, Hours: 1.0, Notes: "test"},
+		}
+		model.selectedEntryIndex = 0
+
+		// Press 'e' to edit
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")}
+		updatedModel, _ := model.Update(msg)
+		m := updatedModel.(Model)
+
+		if m.currentView != ViewEditEntry {
+			t.Fatalf("expected ViewEditEntry, got %v", m.currentView)
+		}
+		if m.statusMessage != "" {
+			t.Errorf("expected status message to be cleared on view transition, got %q", m.statusMessage)
+		}
+	})
+
+	t.Run("given status message when staying on same view then view-transition clear does not interfere", func(t *testing.T) {
+		model := newTestModel()
+		model.currentView = ViewList
+		model.setStatusMessage("Cannot edit locked time entry.")
+		model.timeEntries = []harvest.TimeEntry{
+			{ID: 1, Hours: 1.0, Notes: "test"},
+		}
+		model.selectedEntryIndex = 0
+
+		// Press down arrow — stays on ViewList, but up/down has its own
+		// status-clearing behavior so the message gets cleared by that path
+		msg := tea.KeyMsg{Type: tea.KeyDown}
+		updatedModel, _ := model.Update(msg)
+		m := updatedModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Fatal("expected to stay on ViewList")
+		}
+		if m.statusMessage != "" {
+			t.Errorf("expected status message to be cleared by list navigation, got %q", m.statusMessage)
+		}
+	})
+}
+
+func TestRenderStatusLine(t *testing.T) {
+	t.Run("given success message then renders with success style", func(t *testing.T) {
+		model := newTestModel()
+		msg := "Time entry deleted successfully"
+		model.setStatusMessage(msg)
+		line := model.renderStatusLine()
+		expected := "  " + SuccessText.Render(msg)
+		if line != expected {
+			t.Errorf("expected success-styled line %q, got %q", expected, line)
+		}
+	})
+
+	t.Run("given error message then renders with error style", func(t *testing.T) {
+		model := newTestModel()
+		msg := "Failed to delete entry"
+		model.setStatusMessage(msg)
+		line := model.renderStatusLine()
+		expected := "  " + ErrorText.Render(msg)
+		if line != expected {
+			t.Errorf("expected error-styled line %q, got %q", expected, line)
+		}
+	})
+
+	t.Run("given warning message then renders with warning style", func(t *testing.T) {
+		model := newTestModel()
+		msg := "Loading tasks..."
+		model.setStatusMessage(msg)
+		line := model.renderStatusLine()
+		expected := "  " + WarningText.Render(msg)
+		if line != expected {
+			t.Errorf("expected warning-styled line %q, got %q", expected, line)
+		}
+	})
+
+	t.Run("given empty message then renders empty string", func(t *testing.T) {
+		model := newTestModel()
+		line := model.renderStatusLine()
+		if line != "" {
+			t.Errorf("expected empty status line, got %q", line)
+		}
+	})
+}

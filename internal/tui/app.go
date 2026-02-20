@@ -337,6 +337,8 @@ func (m Model) View() string {
 
 // handleKeyPress processes key presses for the current view.
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	previousView := m.currentView
+
 	// Global keybindings that work in all views
 	switch msg.String() {
 	case "ctrl+c":
@@ -348,34 +350,46 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.currentView = ViewHelp
 		}
+		m.clearStatusMessage()
 		return m, nil
 	}
 
 	// View-specific keybindings
+	var result tea.Model
+	var cmd tea.Cmd
+
 	switch m.currentView {
 	case ViewList:
-		return m.handleListViewKeys(msg)
+		result, cmd = m.handleListViewKeys(msg)
 	case ViewSelectProject:
-		return m.handleProjectSelectKeys(msg)
+		result, cmd = m.handleProjectSelectKeys(msg)
 	case ViewSelectTask:
-		return m.handleTaskSelectKeys(msg)
+		result, cmd = m.handleTaskSelectKeys(msg)
 	case ViewNewEntry:
-		return m.handleNewEntryKeys(msg)
+		result, cmd = m.handleNewEntryKeys(msg)
 	case ViewEditEntry:
-		return m.handleEditViewKeys(msg)
+		result, cmd = m.handleEditViewKeys(msg)
 	case ViewConfirmDelete:
-		return m.handleConfirmDeleteKeys(msg)
+		result, cmd = m.handleConfirmDeleteKeys(msg)
 	case ViewHelp:
-		return m.handleHelpViewKeys(msg)
+		result, cmd = m.handleHelpViewKeys(msg)
 	case ViewNotesInput:
-		return m.handleNotesInputKeys(msg)
+		result, cmd = m.handleNotesInputKeys(msg)
 	case ViewDurationInput:
-		return m.handleDurationInputKeys(msg)
+		result, cmd = m.handleDurationInputKeys(msg)
 	case ViewBillableToggle:
-		return m.handleBillableToggleKeys(msg)
+		result, cmd = m.handleBillableToggleKeys(msg)
+	default:
+		return m, nil
 	}
 
-	return m, nil
+	// Clear status message when transitioning between views
+	if resultModel, ok := result.(Model); ok && resultModel.currentView != previousView {
+		resultModel.clearStatusMessage()
+		return resultModel, cmd
+	}
+
+	return result, cmd
 }
 
 // clearEditState resets the editing and new entry state.
@@ -695,10 +709,7 @@ func (m Model) renderEditView() string {
 	}
 
 	// Status message if any
-	statusLine := ""
-	if m.statusMessage != "" {
-		statusLine = "  " + ErrorText.Render(m.statusMessage)
-	}
+	statusLine := m.renderStatusLine()
 
 	contentLines := []string{
 		titleBar,
@@ -878,10 +889,7 @@ func (m Model) renderDurationInputView() string {
 	}
 
 	// Status message
-	statusLine := ""
-	if m.statusMessage != "" {
-		statusLine = "  " + ErrorText.Render(m.statusMessage)
-	}
+	statusLine := m.renderStatusLine()
 
 	contentLines := []string{titleBar, breadcrumb, info, notesInfo, divider, "", inputView}
 	if statusLine != "" {
@@ -1543,6 +1551,27 @@ func (m *Model) clearStatusMessage() {
 	m.statusMessageTime = time.Time{}
 }
 
+// renderStatusLine returns the status message styled based on its content.
+// Success messages render green, errors red, warnings yellow.
+func (m Model) renderStatusLine() string {
+	if m.statusMessage == "" {
+		return ""
+	}
+	style := SuccessText
+	msgLower := strings.ToLower(m.statusMessage)
+	if strings.Contains(msgLower, "error") ||
+		strings.Contains(msgLower, "failed") ||
+		strings.Contains(msgLower, "cannot") ||
+		strings.Contains(msgLower, "no tasks") ||
+		strings.Contains(msgLower, "invalid") {
+		style = ErrorText
+	} else if strings.Contains(msgLower, "locked") ||
+		strings.Contains(msgLower, "loading") {
+		style = WarningText
+	}
+	return "  " + style.Render(m.statusMessage)
+}
+
 // hasRunningTimer checks if any time entry has a running timer
 func (m Model) hasRunningTimer() bool {
 	for _, entry := range m.timeEntries {
@@ -1678,10 +1707,7 @@ func (m Model) renderNewEntryModal() string {
 	}
 
 	// Status message
-	statusLine := ""
-	if m.statusMessage != "" {
-		statusLine = "  " + ErrorText.Render(m.statusMessage)
-	}
+	statusLine := m.renderStatusLine()
 
 	contentLines := []string{
 		titleBar,
