@@ -1,6 +1,6 @@
 # Harvest TUI Time Tracker
 
-A terminal-based time tracking application that connects to the Harvest API v2, allowing users to manage their daily time entries from their terminal.
+A terminal-based time tracking application that connects to the Harvest API v2, allowing users to manage their daily time entries.
 
 ### Time Sheet view
 
