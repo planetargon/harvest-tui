@@ -1,12 +1,16 @@
 # Harvest TUI Time Tracker
 
-A terminal-based time tracking application that connects to the Harvest API v2, allowing users to manage their daily time entries from the command line.
+A terminal-based time tracking application that connects to the Harvest API v2, allowing users to manage their daily time entries from their terminal.
 
-<img width="651" height="383" alt="image" src="https://github.com/user-attachments/assets/0b434def-7c80-4f90-8ce6-6145208e9d6d" />
+### Time Sheet view
 
-<img width="654" height="330" alt="image" src="https://github.com/user-attachments/assets/ba1ba147-05a0-4c6a-a028-dd5a1638dad0" />
+<img width="649" height="349" alt="image" src="https://github.com/user-attachments/assets/364c6784-8c2e-4779-be8c-8794c0038917" />
 
-<img width="296" height="386" alt="image" src="https://github.com/user-attachments/assets/99de0478-bc13-4fb8-9355-0da7334a88c1" />
+### Add/Edit Time Entry
+<img width="644" height="252" alt="image" src="https://github.com/user-attachments/assets/380d8eeb-e67e-4864-b676-7dbdb0f7f292" />
+
+### Help Menu
+<img width="652" height="428" alt="image" src="https://github.com/user-attachments/assets/c3c7720f-e66c-45a3-83a2-d81b4bde664d" />
 
 
 
@@ -30,6 +34,11 @@ A terminal-based time tracking application that connects to the Harvest API v2, 
    ```
 
 The binary will be created at `bin/harvest-tui`.
+
+3. Run the application:
+   ```bash
+   ./bin/harvest-tui
+   ```
 
 ## Configuration
 
