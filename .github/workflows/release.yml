@@ -25,3 +25,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Warm Go module proxy
+        run: GOPROXY=proxy.golang.org go list -m github.com/planetargon/harvest-tui@${{ github.ref_name }}
