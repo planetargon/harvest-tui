@@ -35,6 +35,14 @@ sudo mv harvest-tui /usr/local/bin/
 go install github.com/planetargon/harvest-tui/cmd/harvest-tui@latest
 ```
 
+The binary is installed to `~/go/bin`. If that directory isn't already on your `$PATH`, add it:
+
+```bash
+export PATH="$HOME/go/bin:$PATH"
+```
+
+Otherwise, you can run it directly with `~/go/bin/harvest-tui`.
+
 ### Build from Source
 
 1. Clone this repository:
