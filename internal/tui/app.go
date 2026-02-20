@@ -429,14 +429,6 @@ func parseDuration(durationStr string) (float64, error) {
 	return float64(hours) + float64(minutes)/60.0, nil
 }
 
-// min returns the minimum of two integers.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // projectItem represents a project in the selection list.
 type projectItem struct {
 	project harvest.Project

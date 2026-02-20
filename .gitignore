@@ -4,4 +4,4 @@ bin/
 *.log
 .claude/
 .conductor/
-config.toml
+/config.toml
