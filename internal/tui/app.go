@@ -80,6 +80,7 @@ type Model struct {
 	errorMessage      string
 	statusMessage     string
 	statusMessageTime time.Time // Track when the status message was set
+	lastFetchTime     time.Time // Track last API fetch to avoid rate limiting
 	showSpinner       bool
 
 	// List components for selection views
@@ -155,6 +156,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.timeEntries = msg.entries
 			m.errorMessage = ""
+			m.lastFetchTime = time.Now()
 		}
 		m.loading = false
 
@@ -173,13 +175,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Check if we have a running timer
+		// Check if we have a running timer and it's time to refresh from API
 		if m.hasRunningTimer() && m.currentView == ViewList && !m.loading {
-			// Fetch updated time entries to get the latest hours
-			return m, tea.Batch(
-				fetchTimeEntriesCmd(m.harvestClient, m.currentDate),
-				tickCmd(), // Continue ticking
-			)
+			if time.Since(m.lastFetchTime) >= 25*time.Second {
+				m.lastFetchTime = time.Now()
+				return m, tea.Batch(
+					fetchTimeEntriesCmd(m.harvestClient, m.currentDate),
+					tickCmd(),
+				)
+			}
+			return m, tickCmd()
 		}
 		// Continue ticking if we have a running timer or status message
 		if m.hasRunningTimer() || m.statusMessage != "" {
@@ -208,8 +213,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.setStatusMessage("Timer started successfully")
-			// Start ticking for real-time updates
-			return m, tickCmd()
+			// Re-fetch entries so previously running timer shows as stopped
+			m.lastFetchTime = time.Now()
+			return m, tea.Batch(
+				fetchTimeEntriesCmd(m.harvestClient, m.currentDate),
+				tickCmd(),
+			)
 		}
 		return m, nil
 
@@ -1721,7 +1730,7 @@ func deleteTimeEntryCmd(client *harvest.Client, entryID int) tea.Cmd {
 
 // tickCmd returns a command that sends a tick message after a delay
 func tickCmd() tea.Cmd {
-	return tea.Tick(1*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }

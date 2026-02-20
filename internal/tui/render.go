@@ -29,10 +29,14 @@ func (m Model) renderStyledListView() string {
 	}
 	titleBar := titleText + strings.Repeat(" ", spacerWidth) + titleSuffix
 
-	// Calculate daily total with accent color
+	// Calculate daily total with accent color (add elapsed time for running entry)
 	totalHours := 0.0
 	for _, entry := range m.timeEntries {
-		totalHours += entry.Hours
+		if entry.IsRunning && !m.lastFetchTime.IsZero() {
+			totalHours += entry.Hours + time.Since(m.lastFetchTime).Hours()
+		} else {
+			totalHours += entry.Hours
+		}
 	}
 	totalStr := formatHoursSimple(totalHours)
 
@@ -187,6 +191,13 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 	projectName := truncateString(entry.Project.Name, 25)
 	taskName := truncateString(entry.Task.Name, 20)
 
+	// For running entries, add elapsed time since last fetch for a live display
+	displayHours := entry.Hours
+	if entry.IsRunning && !m.lastFetchTime.IsZero() {
+		elapsed := time.Since(m.lastFetchTime).Hours()
+		displayHours += elapsed
+	}
+
 	// Build styled components with optional selected background
 	var entryPath, styledDuration, indicator string
 	if isSelected {
@@ -198,9 +209,9 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 			TaskStyle.Background(bg).Render(taskName)
 
 		if entry.IsRunning {
-			styledDuration = RunningDurationStyle.Background(bg).Render(formatHoursSimple(entry.Hours))
+			styledDuration = RunningDurationStyle.Background(bg).Render(formatHoursSimple(displayHours))
 		} else {
-			styledDuration = DurationStyle.Background(bg).Render(formatHoursSimple(entry.Hours))
+			styledDuration = DurationStyle.Background(bg).Render(formatHoursSimple(displayHours))
 		}
 
 		if entry.IsRunning {
@@ -212,11 +223,11 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 		entryPath = RenderEntryPath(clientName, projectName, taskName)
 
 		if entry.IsRunning {
-			styledDuration = RunningDurationStyle.Render(formatHoursSimple(entry.Hours))
+			styledDuration = RunningDurationStyle.Render(formatHoursSimple(displayHours))
 		} else if entry.IsLocked {
-			styledDuration = DurationStyle.Copy().Foreground(mutedText).Render(formatHoursSimple(entry.Hours))
+			styledDuration = DurationStyle.Copy().Foreground(mutedText).Render(formatHoursSimple(displayHours))
 		} else {
-			styledDuration = DurationStyle.Render(formatHoursSimple(entry.Hours))
+			styledDuration = DurationStyle.Render(formatHoursSimple(displayHours))
 		}
 
 		if entry.IsRunning {
