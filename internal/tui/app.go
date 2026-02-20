@@ -9,8 +9,10 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/planetargon/harvest-tui/internal/config"
 	"github.com/planetargon/harvest-tui/internal/harvest"
 	"github.com/planetargon/harvest-tui/internal/state"
@@ -20,8 +22,10 @@ import (
 type ViewState int
 
 const (
+	// ViewLoading is the initial loading screen shown during startup.
+	ViewLoading ViewState = iota
 	// ViewList is the main list view showing time entries for the current date.
-	ViewList ViewState = iota
+	ViewList
 	// ViewSelectProject is the project selection view when creating a new time entry.
 	ViewSelectProject
 	// ViewSelectTask is the task selection view when creating a new time entry.
@@ -82,7 +86,9 @@ type Model struct {
 	statusMessage     string
 	statusMessageTime time.Time // Track when the status message was set
 	lastFetchTime     time.Time // Track last API fetch to avoid rate limiting
-	showSpinner       bool
+	spinner           spinner.Model
+	timeEntriesLoaded bool
+	projectsLoaded    bool
 
 	// List components for selection views
 	projectList list.Model
@@ -101,8 +107,12 @@ type Model struct {
 
 // NewModel creates a new TUI model with the given configuration.
 func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State, user *harvest.User) Model {
+	s := spinner.New()
+	s.Spinner = spinner.MiniDot
+	s.Style = lipgloss.NewStyle().Foreground(accentColor)
+
 	return Model{
-		currentView:        ViewList,
+		currentView:        ViewLoading,
 		config:             cfg,
 		harvestClient:      client,
 		appState:           appState,
@@ -121,7 +131,7 @@ func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State,
 		errorMessage:       "",
 		statusMessage:      "",
 		statusMessageTime:  time.Time{},
-		showSpinner:        false,
+		spinner:            s,
 		projectList:        newShellList(newProjectDelegate()),
 		taskList:           newShellList(newTaskDelegate()),
 		width:              80,
@@ -132,6 +142,7 @@ func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State,
 // Init initializes the model and returns initial commands.
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
+		m.spinner.Tick,
 		fetchTimeEntriesCmd(m.harvestClient, m.currentDate),
 		fetchProjectsWithTasksCmd(m.harvestClient),
 		tickCmd(), // Start the ticker for real-time updates
@@ -150,6 +161,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 
+	case spinner.TickMsg:
+		if m.currentView == ViewLoading {
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
 	case timeEntriesFetchedMsg:
 		if msg.err != nil {
 			m.errorMessage = "Failed to fetch time entries: " + msg.err.Error()
@@ -159,6 +178,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastFetchTime = time.Now()
 		}
 		m.loading = false
+		m.timeEntriesLoaded = true
+
+		// Transition from loading screen when both fetches complete
+		if m.currentView == ViewLoading && m.projectsLoaded {
+			m.currentView = ViewList
+		}
 
 		// If there's a running timer, continue ticking
 		if m.hasRunningTimer() {
@@ -208,6 +233,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		m.projectsLoaded = true
+
+		// Transition from loading screen when both fetches complete
+		if m.currentView == ViewLoading && m.timeEntriesLoaded {
+			m.currentView = ViewList
+		}
+
 		return m, nil
 
 	case timeEntryStartedMsg:
@@ -310,6 +342,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the current view.
 func (m Model) View() string {
 	switch m.currentView {
+	case ViewLoading:
+		return m.renderLoadingView()
 	case ViewList:
 		return m.renderStyledListView()
 	case ViewSelectProject:
@@ -351,6 +385,11 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.currentView = ViewHelp
 		}
 		m.clearStatusMessage()
+		return m, nil
+	}
+
+	// Block all other input during loading
+	if m.currentView == ViewLoading {
 		return m, nil
 	}
 

@@ -170,8 +170,8 @@ func TestNewModel(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Test initial view state
-		if model.currentView != ViewList {
-			t.Errorf("expected currentView to be ViewList, got %v", model.currentView)
+		if model.currentView != ViewLoading {
+			t.Errorf("expected currentView to be ViewLoading, got %v", model.currentView)
 		}
 
 		// Test dependencies
@@ -251,10 +251,6 @@ func TestNewModel(t *testing.T) {
 		if model.statusMessage != "" {
 			t.Errorf("expected statusMessage to be empty, got '%s'", model.statusMessage)
 		}
-		if model.showSpinner != false {
-			t.Errorf("expected showSpinner to be false, got %t", model.showSpinner)
-		}
-
 		// Test window dimensions
 		if model.width != 80 {
 			t.Errorf("expected width to be 80, got %d", model.width)
@@ -359,8 +355,8 @@ func TestViewStateTransitions(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Test initial state
-		if model.currentView != ViewList {
-			t.Errorf("expected initial view to be ViewList, got %v", model.currentView)
+		if model.currentView != ViewLoading {
+			t.Errorf("expected initial view to be ViewLoading, got %v", model.currentView)
 		}
 
 		// Test changing states
@@ -403,6 +399,7 @@ func TestMainListViewRendering(t *testing.T) {
 		appState := &state.State{}
 
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 
 		// Add mock time entries
 		model.timeEntries = []harvest.TimeEntry{
@@ -496,6 +493,7 @@ func TestMainListViewRendering(t *testing.T) {
 		appState := &state.State{}
 
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.currentDate = time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
 
 		output := model.View()
@@ -521,6 +519,7 @@ func TestMainListViewRendering(t *testing.T) {
 		appState := &state.State{}
 
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.loading = true
 
 		output := model.View()
@@ -542,6 +541,7 @@ func TestMainListViewRendering(t *testing.T) {
 		appState := &state.State{}
 
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.errorMessage = "Failed to fetch data"
 
 		output := model.View()
@@ -788,6 +788,7 @@ func TestNewEntryAction(t *testing.T) {
 
 	t.Run("given model with no projects when 'n' pressed then shows error message", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.projectsWithTasks = []harvest.ProjectWithTasks{}
 
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
@@ -858,6 +859,7 @@ func TestEditEntryAction(t *testing.T) {
 
 	t.Run("given model with locked entry when 'e' pressed then shows error message", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:       1,
@@ -881,6 +883,7 @@ func TestEditEntryAction(t *testing.T) {
 
 	t.Run("given model with no entries when 'e' pressed then nothing happens", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{}
 
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
@@ -929,6 +932,7 @@ func TestDeleteEntryAction(t *testing.T) {
 
 	t.Run("given model with locked entry when 'd' pressed then shows error message", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -953,6 +957,7 @@ func TestDeleteEntryAction(t *testing.T) {
 
 	t.Run("given model with running entry when 'd' pressed then shows error message", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -988,6 +993,7 @@ func TestStartStopTimerActions(t *testing.T) {
 
 	t.Run("given model with stopped unlocked entry when 's' pressed then starts timer", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -1013,6 +1019,7 @@ func TestStartStopTimerActions(t *testing.T) {
 
 	t.Run("given model with running entry when 's' pressed then stops timer", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:        1,
@@ -1160,6 +1167,7 @@ func TestDailyTotalDisplay(t *testing.T) {
 
 	t.Run("given model with multiple time entries when rendered then displays correct daily total", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:         1,
@@ -1202,6 +1210,7 @@ func TestDailyTotalDisplay(t *testing.T) {
 
 	t.Run("given model with no time entries when rendered then displays zero daily total", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{}
 		model.currentDate = time.Date(2025, 1, 19, 0, 0, 0, 0, time.UTC)
 
@@ -1219,6 +1228,7 @@ func TestDailyTotalDisplay(t *testing.T) {
 
 	t.Run("given model with fractional hours when rendered then displays correct time format", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:    1,
@@ -1241,6 +1251,7 @@ func TestDailyTotalDisplay(t *testing.T) {
 
 	t.Run("given model with large total when rendered then displays hours correctly", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
 		model.timeEntries = []harvest.TimeEntry{
 			{
 				ID:    1,
