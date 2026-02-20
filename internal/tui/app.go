@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/planetargon/argon-harvest-tui/internal/config"
 	"github.com/planetargon/argon-harvest-tui/internal/domain"
 	"github.com/planetargon/argon-harvest-tui/internal/harvest"
@@ -121,8 +120,8 @@ func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State,
 		statusMessage:      "",
 		statusMessageTime:  time.Time{},
 		showSpinner:        false,
-		projectList:        list.New([]list.Item{}, newProjectDelegate(), 0, 0),
-		taskList:           list.New([]list.Item{}, newTaskDelegate(), 0, 0),
+		projectList:        newShellList(newProjectDelegate()),
+		taskList:           newShellList(newTaskDelegate()),
 		width:              80,
 		height:             24,
 	}
@@ -143,8 +142,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.projectList.SetSize(msg.Width, msg.Height-8)
-		m.taskList.SetSize(msg.Width, msg.Height-8)
+		contentW := m.shellWidth() - 4
+		contentH := msg.Height - 7
+		if contentH < 5 {
+			contentH = 5
+		}
+		m.projectList.SetSize(contentW, contentH)
+		m.taskList.SetSize(contentW, contentH)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -387,202 +391,6 @@ func (m *Model) clearEditState() {
 	m.editCurrentField = 0
 }
 
-// renderListView renders the main list view showing time entries for the current date.
-func (m Model) renderListView() string {
-	// Calculate dimensions
-	width := 65 // Fixed width for consistent layout
-	if m.width > 0 {
-		width = min(m.width-2, 80) // Cap at 80 chars wide
-	}
-
-	// Format date navigation
-	dateStr := m.currentDate.Format("Mon, Jan 2, 2006")
-	dateNav := fmt.Sprintf("◀ %s ▶", dateStr)
-
-	// Title bar with date navigation
-	titleBar := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		"  Harvest Time Tracker",
-		lipgloss.NewStyle().Width(width-26-len(dateNav)).Render(""),
-		dateNav,
-		"  ",
-	)
-
-	// Calculate daily total
-	totalHours := 0.0
-	for _, entry := range m.timeEntries {
-		totalHours += entry.Hours
-	}
-	totalStr := formatHoursSimple(totalHours)
-
-	// Section header
-	entriesText := "  Entries"
-	totalText := "Total: " + totalStr + "  "
-	paddingWidth := width - len(entriesText) - len(totalText)
-	if paddingWidth < 1 {
-		paddingWidth = 1
-	}
-	sectionHeader := entriesText + strings.Repeat(" ", paddingWidth) + totalText
-
-	// Divider
-	divider := "  " + strings.Repeat("─", width-4)
-
-	// Handle loading state
-	if m.loading {
-		content := []string{
-			titleBar,
-			sectionHeader,
-			divider,
-			"    Loading...",
-			"",
-		}
-		return m.wrapInBox(strings.Join(content, "\n"), width)
-	}
-
-	// Handle error state
-	if m.errorMessage != "" {
-		content := []string{
-			titleBar,
-			sectionHeader,
-			divider,
-			"    Error: " + m.errorMessage,
-			"",
-		}
-		return m.wrapInBox(strings.Join(content, "\n"), width)
-	}
-
-	// Handle empty state
-	if len(m.timeEntries) == 0 {
-		content := []string{
-			titleBar,
-			sectionHeader,
-			divider,
-			"",
-			"    No time entries for this date",
-			"    Press 'n' to create a new entry",
-			"",
-		}
-		return m.wrapInBox(strings.Join(content, "\n"), width)
-	}
-
-	// Render time entries
-	var entryLines []string
-	for i, entry := range m.timeEntries {
-		isSelected := i == m.selectedEntryIndex
-		entryLines = append(entryLines, m.renderCompactTimeEntry(entry, isSelected, width-4))
-	}
-
-	// Build content
-	contentLines := []string{titleBar, sectionHeader, divider}
-	contentLines = append(contentLines, entryLines...)
-
-	// Add status message if present
-	if m.statusMessage != "" {
-		contentLines = append(contentLines, "", "  "+m.statusMessage)
-	}
-
-	return m.wrapInBox(strings.Join(contentLines, "\n"), width)
-}
-
-// wrapInBox wraps content in a box border with footer.
-func (m Model) wrapInBox(content string, width int) string {
-	// Top border
-	top := "┌" + strings.Repeat("─", width-2) + "┐"
-
-	// Content lines with side borders
-	lines := strings.Split(content, "\n")
-	var boxedLines []string
-	boxedLines = append(boxedLines, top)
-
-	for _, line := range lines {
-		// Pad line to width - use lipgloss.Width to handle styled text properly
-		lineWidth := lipgloss.Width(line)
-		padded := line
-		if lineWidth < width-2 {
-			padded = line + strings.Repeat(" ", width-2-lineWidth)
-		} else if lineWidth > width-2 {
-			// For lines that are too long, we need better truncation
-			// This is simplified - proper truncation of styled text is complex
-			padded = line
-		}
-		boxedLines = append(boxedLines, "│"+padded+"│")
-	}
-
-	// Footer with keybindings
-	footerSeparator := "├" + strings.Repeat("─", width-2) + "┤"
-	footer := "  n new  e edit  s start/stop  d delete  ? help  q quit"
-	footerWidth := lipgloss.Width(footer)
-	if footerWidth > width-2 {
-		// Truncate if too long
-		footer = footer[:width-2]
-		footerWidth = width - 2
-	}
-	footerPadded := footer + strings.Repeat(" ", width-2-footerWidth)
-
-	// Bottom border
-	bottom := "└" + strings.Repeat("─", width-2) + "┘"
-
-	boxedLines = append(boxedLines, footerSeparator)
-	boxedLines = append(boxedLines, "│"+footerPadded+"│")
-	boxedLines = append(boxedLines, bottom)
-
-	return strings.Join(boxedLines, "\n")
-}
-
-// renderCompactTimeEntry renders a single time entry in compact format.
-func (m Model) renderCompactTimeEntry(entry harvest.TimeEntry, isSelected bool, maxWidth int) string {
-	var lines []string
-
-	// Status indicators
-	statusIcon := "  "
-	if isSelected {
-		statusIcon = "▶ "
-	}
-
-	timerIcon := ""
-	if entry.IsRunning {
-		timerIcon = " ⏱️"
-	}
-	if entry.IsLocked {
-		timerIcon = " 🔒"
-	}
-
-	// Format hours
-	hoursText := formatHoursSimple(entry.Hours)
-
-	// First line: Client → Project → Task + hours
-	clientName := truncateString(entry.Client.Name, 20)
-	projectName := truncateString(entry.Project.Name, 25)
-	taskName := truncateString(entry.Task.Name, 20)
-
-	firstLine := fmt.Sprintf("%s%s → %s → %s",
-		statusIcon,
-		clientName,
-		projectName,
-		taskName,
-	)
-
-	// Calculate padding for hours alignment
-	padding := maxWidth - len(firstLine) - len(hoursText) - len(timerIcon) - 2
-	if padding < 1 {
-		padding = 1
-	}
-
-	firstLine = firstLine + strings.Repeat(" ", padding) + hoursText + timerIcon
-	lines = append(lines, firstLine)
-
-	// Second line: Notes (if any)
-	if entry.Notes != "" {
-		notesLine := "    \"" + truncateString(entry.Notes, maxWidth-8) + "\""
-		lines = append(lines, notesLine)
-	}
-
-	// Add blank line after entry (except for loading/error states)
-	lines = append(lines, "")
-
-	return strings.Join(lines, "\n")
-}
-
 // formatHoursSimple formats hours as H:MM format.
 func formatHoursSimple(hours float64) string {
 	h := int(hours)
@@ -623,7 +431,7 @@ func (i projectItem) Title() string {
 }
 
 func (i projectItem) Description() string {
-	return "Project ID: " + fmt.Sprintf("%d", i.project.ID)
+	return ""
 }
 
 // dividerItem represents a divider in the selection list.
@@ -656,21 +464,29 @@ func (i taskItem) Title() string {
 }
 
 func (i taskItem) Description() string {
-	return "Task ID: " + fmt.Sprintf("%d", i.task.ID)
+	return ""
 }
 
 // newProjectDelegate creates a new delegate for project list items.
 func newProjectDelegate() list.DefaultDelegate {
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = true
+	delegate.ShowDescription = false
 	return delegate
 }
 
 // newTaskDelegate creates a new delegate for task list items.
 func newTaskDelegate() list.DefaultDelegate {
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = true
+	delegate.ShowDescription = false
 	return delegate
+}
+
+// newShellList creates a list.Model with title and status bar disabled.
+func newShellList(delegate list.DefaultDelegate) list.Model {
+	l := list.New([]list.Item{}, delegate, 0, 0)
+	l.SetShowTitle(false)
+	l.SetShowStatusBar(false)
+	return l
 }
 
 // updateProjectList updates the project list with current projects and recents.
@@ -733,7 +549,6 @@ func (m *Model) updateProjectList() {
 	}
 
 	m.projectList.SetItems(items)
-	m.projectList.Title = "Select Project"
 }
 
 // updateTaskList updates the task list with tasks from the selected project.
@@ -743,424 +558,350 @@ func (m *Model) updateTaskList(tasks []harvest.Task) {
 		items = append(items, taskItem{task: task})
 	}
 	m.taskList.SetItems(items)
-	m.taskList.Title = "Select Task"
 }
 
 func (m Model) renderProjectSelectView() string {
-	styles := DefaultStyles()
+	width := m.shellWidth()
 
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("New Time Entry"),
-			"  ",
-			styles.Subtitle.Render("Step 1: Choose Project"),
-		),
-	)
+	titleBar := m.renderTitleBar()
 
-	// Instructions
-	instructions := styles.SecondaryText.Render("Press Enter to select • Esc to cancel • / to filter")
+	// Breadcrumb header
+	breadcrumb := "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 1: Choose Project")
+
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Render the list
 	listView := m.projectList.View()
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
-		instructions,
-		"",
-		listView,
-	)
+	content := strings.Join([]string{titleBar, breadcrumb, divider, "", listView}, "\n")
+
+	footerKeys := []string{
+		RenderKeybinding("↑↓", "navigate"),
+		RenderKeybinding("/", "filter"),
+		RenderKeybinding("enter", "select"),
+		RenderKeybinding("esc", "back"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
 }
 
 func (m Model) renderTaskSelectView() string {
-	styles := DefaultStyles()
+	width := m.shellWidth()
 
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("New Time Entry"),
-			"  ",
-			styles.Subtitle.Render("Step 2: Choose Task"),
-		),
-	)
+	titleBar := m.renderTitleBar()
+
+	// Breadcrumb header
+	breadcrumb := "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 2: Choose Task")
 
 	// Show selected project
 	projectInfo := ""
 	if m.selectedProject != nil {
-		projectInfo = styles.SecondaryText.Render(
-			fmt.Sprintf("Project: %s → %s",
-				m.selectedProject.Client.Name,
-				m.selectedProject.Name))
+		projectInfo = "  " + MutedText.Render(fmt.Sprintf("Project: %s → %s",
+			m.selectedProject.Client.Name,
+			m.selectedProject.Name))
 	}
 
-	// Instructions
-	instructions := styles.SecondaryText.Render("Press Enter to select • Esc to go back • / to filter")
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Render the list
 	listView := m.taskList.View()
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
-		projectInfo,
-		"",
-		instructions,
-		"",
-		listView,
-	)
+	content := strings.Join([]string{titleBar, breadcrumb, projectInfo, divider, "", listView}, "\n")
+
+	footerKeys := []string{
+		RenderKeybinding("↑↓", "navigate"),
+		RenderKeybinding("/", "filter"),
+		RenderKeybinding("enter", "select"),
+		RenderKeybinding("esc", "back"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
 }
 
 func (m Model) renderEditView() string {
-	// Render as modal overlay
-	background := m.renderStyledListView()
-	modalWidth := 60
+	width := m.shellWidth()
 
-	// Create modal content
-	modalContent := m.renderEditForm(modalWidth)
+	titleBar := m.renderTitleBar()
 
-	// Calculate position
-	modalHeight := strings.Count(modalContent, "\n") + 1
-	startX := (m.width - modalWidth) / 2
-	startY := (m.height - modalHeight) / 2
-
-	// Ensure positive values
-	if startX < 0 {
-		startX = 0
-	}
-	if startY < 0 {
-		startY = 0
-	}
-
-	return m.renderModalOverlay(background, modalContent, startX, startY, modalWidth, modalHeight)
-}
-
-func (m Model) renderEditForm(width int) string {
-	styles := DefaultStyles()
-
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("Edit Time Entry"),
-		),
-	)
+	// Breadcrumb
+	breadcrumb := "  " + AccentText.Render("Edit Time Entry")
 
 	// Entry info
-	var info string
+	info := ""
 	if m.editingEntry != nil {
-		projectInfo := fmt.Sprintf("%s → %s → %s",
+		info = "  " + MutedText.Render(fmt.Sprintf("%s → %s → %s",
 			m.editingEntry.Client.Name,
 			m.editingEntry.Project.Name,
-			m.editingEntry.Task.Name,
-		)
-		info = styles.SecondaryText.Render(projectInfo)
+			m.editingEntry.Task.Name))
 	}
+
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Build field views
-	var fieldViews []string
-
-	// Notes field
-	notesLabel := "Notes:"
-	if m.editCurrentField == 0 {
-		notesLabel = styles.HighlightText.Render("▶ Notes:")
-	} else {
-		notesLabel = styles.SecondaryText.Render("  Notes:")
-	}
+	notesLabel := fieldLabel("Notes:", m.editCurrentField == 0)
 	var notesView string
 	if m.editNotesInput != nil {
 		notesView = m.editNotesInput.View()
 	} else {
 		notesView = m.editNotes
 	}
-	fieldViews = append(fieldViews, lipgloss.JoinHorizontal(lipgloss.Left, notesLabel, " ", notesView))
 
-	// Duration field
-	durationLabel := "Duration:"
-	if m.editCurrentField == 1 {
-		durationLabel = styles.HighlightText.Render("▶ Duration:")
-	} else {
-		durationLabel = styles.SecondaryText.Render("  Duration:")
-	}
+	durationLabel := fieldLabel("Duration:", m.editCurrentField == 1)
 	var durationView string
 	if m.editDurationInput != nil {
 		durationView = m.editDurationInput.View()
 	} else {
 		durationView = m.editHours
 	}
-	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, durationLabel, " ", durationView))
-
-	fields := lipgloss.JoinVertical(lipgloss.Left, fieldViews...)
-
-	// Instructions
-	instructions := styles.SecondaryText.Render("Tab/Shift+Tab to navigate • Enter to save • Esc to cancel")
 
 	// Status message if any
-	statusMsg := ""
+	statusLine := ""
 	if m.statusMessage != "" {
-		statusMsg = styles.ErrorText.Render(m.statusMessage)
+		statusLine = "  " + ErrorText.Render(m.statusMessage)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
+	contentLines := []string{
+		titleBar,
+		breadcrumb,
 		info,
+		divider,
 		"",
-		fields,
+		"  " + notesLabel + " " + notesView,
 		"",
-		instructions,
-		statusMsg,
-	)
+		"  " + durationLabel + " " + durationView,
+	}
+	if statusLine != "" {
+		contentLines = append(contentLines, "", statusLine)
+	}
 
-	// Style the modal with border and background
-	modal := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(accentColor).
-		Padding(1, 2).
-		Width(width - 4).
-		Background(lipgloss.AdaptiveColor{Light: "#FAFAFA", Dark: "#1A1A1A"}).
-		Render(content)
+	content := strings.Join(contentLines, "\n")
 
-	return modal
+	footerKeys := []string{
+		RenderKeybinding("tab", "next field"),
+		RenderKeybinding("enter", "save"),
+		RenderKeybinding("esc", "cancel"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
+}
+
+// fieldLabel renders a field label with ▶ indicator if active.
+func fieldLabel(label string, active bool) string {
+	if active {
+		return AccentText.Render("▶ " + label)
+	}
+	return MutedText.Render("  " + label)
 }
 
 func (m Model) renderConfirmDeleteView() string {
-	styles := DefaultStyles()
+	width := m.shellWidth()
 
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("Confirm Delete"),
-		),
-	)
+	titleBar := m.renderTitleBar()
+
+	breadcrumb := "  " + ErrorText.Render("Confirm Delete")
+
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Entry details
-	var details string
+	var detailLines []string
+	detailLines = append(detailLines, "  "+AccentText.Render("Are you sure you want to delete this entry?"))
 	if m.editingEntry != nil {
-		details = lipgloss.JoinVertical(lipgloss.Left,
-			styles.Title.Render("Are you sure you want to delete this entry?"),
-			"",
-			styles.SecondaryText.Render(fmt.Sprintf("Notes: %s", m.editingEntry.Notes)),
-			styles.SecondaryText.Render(fmt.Sprintf("Duration: %s", formatHoursSimple(m.editingEntry.Hours))),
-		)
+		detailLines = append(detailLines, "")
+		if m.editingEntry.Notes != "" {
+			detailLines = append(detailLines, "  "+MutedText.Render("Notes: "+m.editingEntry.Notes))
+		}
+		detailLines = append(detailLines, "  "+MutedText.Render("Duration: "+formatHoursSimple(m.editingEntry.Hours)))
 	}
 
-	// Instructions
-	instructions := styles.WarningText.Render("Press Y to confirm deletion • N or Esc to cancel")
+	contentLines := []string{titleBar, breadcrumb, divider, ""}
+	contentLines = append(contentLines, detailLines...)
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
-		details,
-		"",
-		instructions,
-	)
+	content := strings.Join(contentLines, "\n")
+
+	footerKeys := []string{
+		RenderKeybinding("y", "confirm"),
+		RenderKeybinding("n", "cancel"),
+		RenderKeybinding("esc", "cancel"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
 }
 
 func (m Model) renderHelpView() string {
-	styles := DefaultStyles()
+	width := m.shellWidth()
 
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("Help"),
-		),
-	)
+	titleBar := m.renderTitleBar()
+
+	breadcrumb := "  " + AccentText.Render("Help")
+
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Keybindings organized by category
-	navigation := lipgloss.JoinVertical(lipgloss.Left,
-		styles.Subtitle.Render("Navigation"),
-		"  ↑/k       Move up",
-		"  ↓/j       Move down",
-		"  ←/h       Previous day",
-		"  →/l       Next day",
-		"  t         Jump to today",
-	)
-
-	entryActions := lipgloss.JoinVertical(lipgloss.Left,
-		styles.Subtitle.Render("Time Entry Actions"),
-		"  n         New entry",
-		"  e         Edit entry",
-		"  d         Delete entry",
-		"  s         Start/stop timer",
-	)
-
-	general := lipgloss.JoinVertical(lipgloss.Left,
-		styles.Subtitle.Render("General"),
-		"  ?         Toggle this help",
-		"  q/Esc     Quit/Go back",
-		"  Ctrl+C    Force quit",
-	)
-
-	// Instructions
-	instructions := styles.SecondaryText.Render("Press ? or Esc to close help")
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
+	contentLines := []string{
+		titleBar,
+		breadcrumb,
+		divider,
 		"",
-		navigation,
+		"  " + AccentText.Render("Navigation"),
+		"    ↑/k       Move up",
+		"    ↓/j       Move down",
+		"    ←/h       Previous day",
+		"    →/l       Next day",
+		"    t         Jump to today",
 		"",
-		entryActions,
+		"  " + AccentText.Render("Time Entry Actions"),
+		"    n         New entry",
+		"    e         Edit entry",
+		"    d         Delete entry",
+		"    s         Start/stop timer",
 		"",
-		general,
-		"",
-		instructions,
-	)
+		"  " + AccentText.Render("General"),
+		"    ?         Toggle this help",
+		"    q/Esc     Quit/Go back",
+		"    Ctrl+C    Force quit",
+	}
+
+	content := strings.Join(contentLines, "\n")
+
+	footerKeys := []string{
+		RenderKeybinding("?", "close"),
+		RenderKeybinding("esc", "back"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
 }
 
 func (m Model) renderNotesInputView() string {
-	styles := DefaultStyles()
+	width := m.shellWidth()
 
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("New Time Entry"),
-			"  ",
-			styles.Subtitle.Render("Step 3: Enter Notes"),
-		),
-	)
+	titleBar := m.renderTitleBar()
+
+	breadcrumb := "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 3: Enter Notes")
 
 	// Selected project and task info
-	var info string
+	info := ""
 	if m.selectedProject != nil && m.selectedTask != nil {
-		info = styles.SecondaryText.Render(fmt.Sprintf(
-			"%s → %s → %s",
+		info = "  " + MutedText.Render(fmt.Sprintf("%s → %s → %s",
 			m.selectedProject.Client.Name,
 			m.selectedProject.Name,
-			m.selectedTask.Name,
-		))
+			m.selectedTask.Name))
 	}
 
-	// Instructions
-	instructions := styles.SecondaryText.Render("Press Enter to continue • Esc to cancel")
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Input field
-	var inputView string
+	inputView := ""
 	if m.notesInput != nil {
-		inputView = m.notesInput.View()
+		inputView = "  " + m.notesInput.View()
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
-		info,
-		"",
-		inputView,
-		"",
-		instructions,
-	)
+	content := strings.Join([]string{titleBar, breadcrumb, info, divider, "", inputView}, "\n")
+
+	footerKeys := []string{
+		RenderKeybinding("enter", "continue"),
+		RenderKeybinding("esc", "cancel"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
 }
 
 func (m Model) renderDurationInputView() string {
-	styles := DefaultStyles()
+	width := m.shellWidth()
 
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("New Time Entry"),
-			"  ",
-			styles.Subtitle.Render("Step 4: Enter Duration"),
-		),
-	)
+	titleBar := m.renderTitleBar()
+
+	breadcrumb := "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 4: Enter Duration")
 
 	// Selected info
-	var info string
+	info := ""
 	if m.selectedProject != nil && m.selectedTask != nil {
-		info = styles.SecondaryText.Render(fmt.Sprintf(
-			"%s → %s → %s",
+		info = "  " + MutedText.Render(fmt.Sprintf("%s → %s → %s",
 			m.selectedProject.Client.Name,
 			m.selectedProject.Name,
-			m.selectedTask.Name,
-		))
+			m.selectedTask.Name))
 	}
 
 	// Notes info
 	notesInfo := ""
 	if m.newEntryNotes != "" {
-		notesInfo = styles.SecondaryText.Render(fmt.Sprintf("Notes: %s", m.newEntryNotes))
+		notesInfo = "  " + MutedText.Render("Notes: "+m.newEntryNotes)
 	}
 
-	// Instructions
-	instructions := styles.SecondaryText.Render("Enter duration in HH:MM format • Press Enter to continue • Esc to go back")
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Input field
-	var inputView string
+	inputView := ""
 	if m.durationInput != nil {
-		inputView = m.durationInput.View()
+		inputView = "  " + m.durationInput.View()
 	}
 
-	// Status message if any
-	statusMsg := ""
+	// Status message
+	statusLine := ""
 	if m.statusMessage != "" {
-		statusMsg = styles.ErrorText.Render(m.statusMessage)
+		statusLine = "  " + ErrorText.Render(m.statusMessage)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
-		info,
-		notesInfo,
-		"",
-		inputView,
-		"",
-		instructions,
-		statusMsg,
-	)
+	contentLines := []string{titleBar, breadcrumb, info, notesInfo, divider, "", inputView}
+	if statusLine != "" {
+		contentLines = append(contentLines, "", statusLine)
+	}
+
+	content := strings.Join(contentLines, "\n")
+
+	footerKeys := []string{
+		RenderKeybinding("enter", "continue"),
+		RenderKeybinding("esc", "back"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
 }
 
 func (m Model) renderBillableToggleView() string {
-	styles := DefaultStyles()
+	width := m.shellWidth()
 
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("New Time Entry"),
-			"  ",
-			styles.Subtitle.Render("Step 5: Billable Status"),
-		),
-	)
+	titleBar := m.renderTitleBar()
+
+	breadcrumb := "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 5: Billable Status")
 
 	// Selected info
-	var info string
+	info := ""
 	if m.selectedProject != nil && m.selectedTask != nil {
-		info = styles.SecondaryText.Render(fmt.Sprintf(
-			"%s → %s → %s",
+		info = "  " + MutedText.Render(fmt.Sprintf("%s → %s → %s",
 			m.selectedProject.Client.Name,
 			m.selectedProject.Name,
-			m.selectedTask.Name,
-		))
+			m.selectedTask.Name))
 	}
 
 	// Entry details
-	details := []string{}
+	var detailLines []string
 	if m.newEntryNotes != "" {
-		details = append(details, fmt.Sprintf("Notes: %s", m.newEntryNotes))
+		detailLines = append(detailLines, "  "+MutedText.Render("Notes: "+m.newEntryNotes))
 	}
 	if m.newEntryHours != "" {
-		details = append(details, fmt.Sprintf("Duration: %s", m.newEntryHours))
+		detailLines = append(detailLines, "  "+MutedText.Render("Duration: "+m.newEntryHours))
 	}
-	detailsView := styles.SecondaryText.Render(lipgloss.JoinVertical(lipgloss.Left, details...))
+
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Billable toggle
-	billableStatus := "[ ] Non-billable"
+	billableStatus := "  [ ] Non-billable"
 	if m.newEntryBillable {
-		billableStatus = "[x] Billable"
+		billableStatus = "  [x] Billable"
 	}
-	billableView := styles.SecondaryText.Render(billableStatus)
 
-	// Instructions
-	instructions := styles.SecondaryText.Render("Press Space/Tab/B to toggle • Enter to create entry • Esc to go back")
+	contentLines := []string{titleBar, breadcrumb, info}
+	contentLines = append(contentLines, detailLines...)
+	contentLines = append(contentLines, divider, "", billableStatus)
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
-		info,
-		"",
-		detailsView,
-		"",
-		billableView,
-		"",
-		instructions,
-	)
+	content := strings.Join(contentLines, "\n")
+
+	footerKeys := []string{
+		RenderKeybinding("space", "toggle"),
+		RenderKeybinding("enter", "create"),
+		RenderKeybinding("esc", "back"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
 }
 
 // handleListViewKeys handles key presses in the main list view.
@@ -1250,7 +991,12 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.durationInput = &durationInput
 
 			m.updateProjectList()
-			m.projectList.SetSize(m.width-10, min(len(m.projectList.Items()), 10))
+			contentW := m.shellWidth() - 4
+			contentH := m.height - 7
+			if contentH < 5 {
+				contentH = 5
+			}
+			m.projectList.SetSize(contentW, contentH)
 			return m, nil
 		} else {
 			m.setStatusMessage("No projects available. Please check your Harvest configuration.")
@@ -1830,138 +1576,29 @@ func (m Model) updateTimeEntry() tea.Cmd {
 	}
 }
 
-// renderNewEntryModal renders the new entry form as a modal overlay
+// renderNewEntryModal renders the new entry form inside the shell box.
 func (m Model) renderNewEntryModal() string {
-	// First render the background (list view)
-	background := m.renderStyledListView()
+	width := m.shellWidth()
 
-	// Modal dimensions
-	modalWidth := 60
-	modalHeight := 20
+	titleBar := m.renderTitleBar()
 
-	// Center the modal
-	startX := (m.width - modalWidth) / 2
-	startY := (m.height - modalHeight) / 2
+	breadcrumb := "  " + AccentText.Render("New Time Entry")
 
-	// Ensure positive values
-	if startX < 0 {
-		startX = 0
-	}
-	if startY < 0 {
-		startY = 0
-	}
-
-	// Create modal content
-	modalContent := m.renderNewEntryForm(modalWidth)
-
-	// Create overlay effect by rendering the modal on top
-	// For simplicity, we'll just return the modal form
-	// In a more sophisticated implementation, we'd overlay it on the background
-	return m.renderModalOverlay(background, modalContent, startX, startY, modalWidth, modalHeight)
-}
-
-// renderModalOverlay overlays modal content on background
-func (m Model) renderModalOverlay(background, modal string, x, y, width, height int) string {
-	// For now, use a simpler approach: just render the modal with a visual indication of overlay
-	// Trying to composite styled text is complex due to ANSI escape codes
-
-	// Validate inputs
-	if x < 0 {
-		x = 0
-	}
-	if y < 0 {
-		y = 0
-	}
-
-	// Create a dimmed background effect by adding a semi-transparent overlay
-	bgLines := strings.Split(background, "\n")
-	modalLines := strings.Split(modal, "\n")
-
-	// If no background or modal, return empty
-	if len(bgLines) == 0 && len(modalLines) == 0 {
-		return ""
-	}
-
-	// Dim style for the background
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#999999", Dark: "#444444"})
-
-	// Create the final output
-	var result []string
-
-	// Add top padding lines (dimmed)
-	for i := 0; i < y && i < len(bgLines); i++ {
-		result = append(result, dimStyle.Render(bgLines[i]))
-	}
-
-	// Add the modal lines with side padding
-	padding := ""
-	if x > 0 {
-		padding = strings.Repeat(" ", x)
-	}
-	for _, modalLine := range modalLines {
-		result = append(result, padding+modalLine)
-	}
-
-	// Add remaining background lines (dimmed) if there's room
-	startIdx := y + len(modalLines)
-	maxLines := m.height
-	if maxLines <= 0 {
-		maxLines = 40 // Default terminal height
-	}
-	for i := startIdx; i < len(bgLines) && len(result) < maxLines; i++ {
-		result = append(result, dimStyle.Render(bgLines[i]))
-	}
-
-	return strings.Join(result, "\n")
-}
-
-// renderNewEntryForm renders the new entry form content
-func (m Model) renderNewEntryForm(width int) string {
-	styles := DefaultStyles()
-
-	// Header
-	header := styles.Header.Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			styles.Title.Render("New Time Entry"),
-		),
-	)
-
-	// Build field views
-	var fieldViews []string
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Project field
-	projectLabel := "Project:"
-	if m.newEntryCurrentField == 0 {
-		projectLabel = styles.HighlightText.Render("▶ Project:")
-	} else {
-		projectLabel = styles.SecondaryText.Render("  Project:")
-	}
 	projectValue := "(none selected)"
 	if m.selectedProject != nil {
 		projectValue = fmt.Sprintf("%s → %s", m.selectedProject.Client.Name, m.selectedProject.Name)
 	}
-	fieldViews = append(fieldViews, lipgloss.JoinHorizontal(lipgloss.Left, projectLabel, " ", projectValue))
 
 	// Task field
-	taskLabel := "Task:"
-	if m.newEntryCurrentField == 1 {
-		taskLabel = styles.HighlightText.Render("▶ Task:")
-	} else {
-		taskLabel = styles.SecondaryText.Render("  Task:")
-	}
 	taskValue := "(none selected)"
 	if m.selectedTask != nil {
 		taskValue = m.selectedTask.Name
 	}
-	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, taskLabel, " ", taskValue))
 
 	// Notes field
-	notesLabel := "Notes:"
-	if m.newEntryCurrentField == 2 {
-		notesLabel = styles.HighlightText.Render("▶ Notes:")
-	} else {
-		notesLabel = styles.SecondaryText.Render("  Notes:")
-	}
 	var notesView string
 	if m.notesInput != nil && m.newEntryCurrentField == 2 {
 		m.notesInput.Focus()
@@ -1972,15 +1609,8 @@ func (m Model) renderNewEntryForm(width int) string {
 	} else {
 		notesView = m.newEntryNotes
 	}
-	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, notesLabel, " ", notesView))
 
 	// Duration field
-	durationLabel := "Duration:"
-	if m.newEntryCurrentField == 3 {
-		durationLabel = styles.HighlightText.Render("▶ Duration:")
-	} else {
-		durationLabel = styles.SecondaryText.Render("  Duration:")
-	}
 	var durationView string
 	if m.durationInput != nil && m.newEntryCurrentField == 3 {
 		m.durationInput.Focus()
@@ -1991,39 +1621,40 @@ func (m Model) renderNewEntryForm(width int) string {
 	} else {
 		durationView = m.newEntryHours
 	}
-	fieldViews = append(fieldViews, "", lipgloss.JoinHorizontal(lipgloss.Left, durationLabel, " ", durationView))
 
-	fields := lipgloss.JoinVertical(lipgloss.Left, fieldViews...)
-
-	// Instructions
-	instructions := styles.SecondaryText.Render("Tab/Shift+Tab to navigate • Enter on project/task to select • Ctrl+S to save • Esc to cancel")
-
-	// Status message if any
-	statusMsg := ""
+	// Status message
+	statusLine := ""
 	if m.statusMessage != "" {
-		statusMsg = styles.ErrorText.Render(m.statusMessage)
+		statusLine = "  " + ErrorText.Render(m.statusMessage)
 	}
 
-	// Create modal box
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		header,
+	contentLines := []string{
+		titleBar,
+		breadcrumb,
+		divider,
 		"",
-		fields,
+		"  " + fieldLabel("Project:", m.newEntryCurrentField == 0) + " " + projectValue,
 		"",
-		instructions,
-		statusMsg,
-	)
+		"  " + fieldLabel("Task:", m.newEntryCurrentField == 1) + " " + taskValue,
+		"",
+		"  " + fieldLabel("Notes:", m.newEntryCurrentField == 2) + " " + notesView,
+		"",
+		"  " + fieldLabel("Duration:", m.newEntryCurrentField == 3) + " " + durationView,
+	}
+	if statusLine != "" {
+		contentLines = append(contentLines, "", statusLine)
+	}
 
-	// Style the modal with border and background
-	modal := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(accentColor).
-		Padding(1, 2).
-		Width(width - 4).
-		Background(lipgloss.AdaptiveColor{Light: "#FAFAFA", Dark: "#1A1A1A"}).
-		Render(content)
+	content := strings.Join(contentLines, "\n")
 
-	return modal
+	footerKeys := []string{
+		RenderKeybinding("tab", "next"),
+		RenderKeybinding("enter", "select/save"),
+		RenderKeybinding("ctrl+s", "save"),
+		RenderKeybinding("esc", "cancel"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
 }
 
 // handleNewEntryKeys handles key presses in the new entry form

@@ -433,7 +433,7 @@ func TestConfirmDeleteViewRendering(t *testing.T) {
 		if !strings.Contains(output, "2:30") {
 			t.Error("expected output to contain formatted duration")
 		}
-		if !strings.Contains(output, "Y") || !strings.Contains(output, "confirm") {
+		if !strings.Contains(output, "y") || !strings.Contains(output, "confirm") {
 			t.Error("expected output to contain confirmation instructions")
 		}
 	})

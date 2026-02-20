@@ -1186,8 +1186,8 @@ func TestProjectSelectionView(t *testing.T) {
 			t.Error("expected output to contain 'Step 1: Choose Project' subtitle")
 		}
 
-		if !strings.Contains(output, "Press Enter to select") {
-			t.Error("expected output to contain selection instructions")
+		if !strings.Contains(output, "enter") || !strings.Contains(output, "select") {
+			t.Error("expected output to contain selection instructions in footer")
 		}
 	})
 
@@ -1288,8 +1288,8 @@ func TestProjectSelectionView(t *testing.T) {
 			t.Errorf("expected title '%s', got '%s'", expectedTitle, item.Title())
 		}
 
-		// Test Description format
-		expectedDesc := "Project ID: 42"
+		// Test Description format (debug IDs removed)
+		expectedDesc := ""
 		if item.Description() != expectedDesc {
 			t.Errorf("expected description '%s', got '%s'", expectedDesc, item.Description())
 		}
@@ -1315,8 +1315,9 @@ func TestProjectSelectionView(t *testing.T) {
 			t.Errorf("expected empty project list, got %d items", len(items))
 		}
 
-		if model.projectList.Title != "Select Project" {
-			t.Errorf("expected project list title to be 'Select Project', got '%s'", model.projectList.Title)
+		// Title is no longer set on the list (rendered in shell breadcrumb instead)
+		if len(items) != 0 {
+			t.Errorf("expected empty project list, got %d items after re-check", len(items))
 		}
 	})
 }
