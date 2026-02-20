@@ -169,17 +169,8 @@ func (m Model) renderStyledListView() string {
 	contentLines = append(contentLines, entryLines...)
 
 	// Add status message with appropriate styling
-	if m.statusMessage != "" {
-		statusStyle := SuccessText
-		msgLower := strings.ToLower(m.statusMessage)
-		if strings.Contains(msgLower, "error") ||
-			strings.Contains(msgLower, "failed") ||
-			strings.Contains(msgLower, "cannot") {
-			statusStyle = ErrorText
-		} else if strings.Contains(msgLower, "locked") {
-			statusStyle = WarningText
-		}
-		contentLines = append(contentLines, "", "  "+statusStyle.Render(m.statusMessage))
+	if statusLine := m.renderStatusLine(); statusLine != "" {
+		contentLines = append(contentLines, "", statusLine)
 	}
 
 	return m.wrapInStyledBox(strings.Join(contentLines, "\n"), width)
