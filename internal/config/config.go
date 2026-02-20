@@ -8,7 +8,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-const SetupInstructionsURL = "https://github.com/planetargon/argon-harvest-tui?tab=readme-ov-file#getting-harvest-api-credentials"
+const SetupInstructionsURL = "https://github.com/planetargon/harvest-tui?tab=readme-ov-file#getting-harvest-api-credentials"
 
 type Config struct {
 	Harvest HarvestConfig `toml:"harvest"`

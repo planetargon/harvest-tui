@@ -11,9 +11,9 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/planetargon/argon-harvest-tui/internal/config"
-	"github.com/planetargon/argon-harvest-tui/internal/harvest"
-	"github.com/planetargon/argon-harvest-tui/internal/state"
+	"github.com/planetargon/harvest-tui/internal/config"
+	"github.com/planetargon/harvest-tui/internal/harvest"
+	"github.com/planetargon/harvest-tui/internal/state"
 )
 
 // ViewState represents the different views in the TUI application.

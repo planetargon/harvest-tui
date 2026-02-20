@@ -18,27 +18,27 @@ A terminal-based time tracking application that connects to the Harvest API v2, 
 
 ### Download a Release Binary (Recommended)
 
-Download the latest binary for your platform from the [Releases page](https://github.com/planetargon/argon-harvest-tui/releases).
+Download the latest binary for your platform from the [Releases page](https://github.com/planetargon/harvest-tui/releases).
 
 Or use curl to download directly (example for macOS Apple Silicon):
 
 ```bash
-curl -sL https://github.com/planetargon/argon-harvest-tui/releases/latest/download/harvest-tui_darwin_arm64.tar.gz | tar xz
+curl -sL https://github.com/planetargon/harvest-tui/releases/latest/download/harvest-tui_darwin_arm64.tar.gz | tar xz
 sudo mv harvest-tui /usr/local/bin/
 ```
 
 ### Install with Go
 
 ```bash
-go install github.com/planetargon/argon-harvest-tui/cmd/harvest-tui@latest
+go install github.com/planetargon/harvest-tui/cmd/harvest-tui@latest
 ```
 
 ### Build from Source
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/planetargon/argon-harvest-tui.git
-   cd argon-harvest-tui
+   git clone https://github.com/planetargon/harvest-tui.git
+   cd harvest-tui
    ```
 
 2. Build the application:
@@ -50,8 +50,8 @@ The binary will be created at `bin/harvest-tui`.
 
 ## Updating
 
-- **Release binary:** Download the latest version from the [Releases page](https://github.com/planetargon/argon-harvest-tui/releases) and replace the existing binary.
-- **Go install:** Run `go install github.com/planetargon/argon-harvest-tui/cmd/harvest-tui@latest` again.
+- **Release binary:** Download the latest version from the [Releases page](https://github.com/planetargon/harvest-tui/releases) and replace the existing binary.
+- **Go install:** Run `go install github.com/planetargon/harvest-tui/cmd/harvest-tui@latest` again.
 - **Build from source:** Pull the latest changes and rebuild:
   ```bash
   git pull

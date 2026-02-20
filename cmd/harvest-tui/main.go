@@ -5,10 +5,10 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/planetargon/argon-harvest-tui/internal/config"
-	"github.com/planetargon/argon-harvest-tui/internal/harvest"
-	"github.com/planetargon/argon-harvest-tui/internal/state"
-	"github.com/planetargon/argon-harvest-tui/internal/tui"
+	"github.com/planetargon/harvest-tui/internal/config"
+	"github.com/planetargon/harvest-tui/internal/harvest"
+	"github.com/planetargon/harvest-tui/internal/state"
+	"github.com/planetargon/harvest-tui/internal/tui"
 )
 
 func main() {
