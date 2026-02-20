@@ -11,7 +11,8 @@ A terminal-based time tracking application that connects to the [Harvest API v2]
 
 ### Add/Edit Time Entry
 
-<img width="644" height="252" alt="image" src="https://github.com/user-attachments/assets/380d8eeb-e67e-4864-b676-7dbdb0f7f292" />
+<img width="904" height="731" alt="image" src="https://github.com/user-attachments/assets/7ab40990-cfed-4b9a-a713-9f38a53014d5" />
+
 
 ### Help Menu
 
