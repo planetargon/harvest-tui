@@ -1244,12 +1244,17 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Open task selection for the current project
 			if m.editingEntry != nil {
 				// Find the project's tasks
+				var found bool
 				for _, pwt := range m.projectsWithTasks {
 					if pwt.Project.ID == m.editingEntry.Project.ID {
 						m.selectedProject = &pwt.Project
 						m.updateTaskList(pwt.Tasks)
+						found = true
 						break
 					}
+				}
+				if !found {
+					return m, nil
 				}
 				// Blur text inputs while in task selection
 				if m.editNotesInput != nil {

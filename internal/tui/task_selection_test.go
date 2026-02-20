@@ -211,7 +211,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 		}
 	})
 
-	t.Run("given recent combo with multiple tasks when selected then shows task selection with recent task preselected", func(t *testing.T) {
+	t.Run("given recent combo with multiple tasks when selected then shows task selection", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up state with a recent that has all IDs (client, project, task)
