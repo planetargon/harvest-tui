@@ -182,28 +182,48 @@ func (m Model) wrapInStyledBox(content string, width int) string {
 func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, maxWidth int) string {
 	var lines []string
 
-	// Build the entry path with Tokyo Night colors
+	// Build the entry path
 	clientName := truncateString(entry.Client.Name, 20)
 	projectName := truncateString(entry.Project.Name, 25)
 	taskName := truncateString(entry.Task.Name, 20)
-	entryPath := RenderEntryPath(clientName, projectName, taskName)
 
-	// Format duration with Tokyo Night styling
-	styledDuration := ""
-	if entry.IsRunning {
-		styledDuration = RunningDurationStyle.Render(formatHoursSimple(entry.Hours))
-	} else if entry.IsLocked {
-		styledDuration = DurationStyle.Copy().Foreground(mutedText).Render(formatHoursSimple(entry.Hours))
+	// Build styled components with optional selected background
+	var entryPath, styledDuration, indicator string
+	if isSelected {
+		bg := selectedBg
+		entryPath = ClientStyle.Background(bg).Render(clientName) +
+			ArrowStyle.Background(bg).Render(" → ") +
+			ProjectStyle.Background(bg).Render(projectName) +
+			ArrowStyle.Background(bg).Render(" → ") +
+			TaskStyle.Background(bg).Render(taskName)
+
+		if entry.IsRunning {
+			styledDuration = RunningDurationStyle.Background(bg).Render(formatHoursSimple(entry.Hours))
+		} else {
+			styledDuration = DurationStyle.Background(bg).Render(formatHoursSimple(entry.Hours))
+		}
+
+		if entry.IsRunning {
+			indicator = " " + RunningDot.Background(bg).Render("●")
+		} else if entry.IsLocked {
+			indicator = " " + LockedIcon.Background(bg).Render("🔒")
+		}
 	} else {
-		styledDuration = DurationStyle.Render(formatHoursSimple(entry.Hours))
-	}
+		entryPath = RenderEntryPath(clientName, projectName, taskName)
 
-	// Add running indicator
-	indicator := ""
-	if entry.IsRunning {
-		indicator = " " + RunningDot.Render("●")
-	} else if entry.IsLocked {
-		indicator = " " + LockedIcon.Render("🔒")
+		if entry.IsRunning {
+			styledDuration = RunningDurationStyle.Render(formatHoursSimple(entry.Hours))
+		} else if entry.IsLocked {
+			styledDuration = DurationStyle.Copy().Foreground(mutedText).Render(formatHoursSimple(entry.Hours))
+		} else {
+			styledDuration = DurationStyle.Render(formatHoursSimple(entry.Hours))
+		}
+
+		if entry.IsRunning {
+			indicator = " " + RunningDot.Render("●")
+		} else if entry.IsLocked {
+			indicator = " " + LockedIcon.Render("🔒")
+		}
 	}
 
 	// Calculate padding for alignment
@@ -218,11 +238,12 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 	// Build the entry line
 	var entryLine string
 	if isSelected {
-		// Selected entry with rounded border card
-		entryContent := entryPath + strings.Repeat(" ", padding) + styledDuration + indicator
-		entryLine = SelectedEntry.Render(entryContent)
+		// Selected entry with accent bar and full-width background
+		bgSpacer := lipgloss.NewStyle().Background(selectedBg).Render(strings.Repeat(" ", padding))
+		entryContent := entryPath + bgSpacer + styledDuration + indicator
+		entryLine = SelectedEntry.Width(maxWidth).Render(entryContent)
 	} else {
-		// Unselected entry with left padding to align with border
+		// Unselected entry with left padding
 		entryContent := entryPath + strings.Repeat(" ", padding) + styledDuration + indicator
 		if entry.IsLocked {
 			entryContent = LockedEntryStyle.Render(entryContent)
@@ -235,13 +256,8 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 	// Notes line with Tokyo Night styling
 	if entry.Notes != "" {
 		notesText := RenderNotes(truncateString(entry.Notes, maxWidth-8))
-		if isSelected {
-			// Add padding to align with card content (border + padding = 2 chars)
-			lines = append(lines, "   "+notesText)
-		} else {
-			// Add padding to align with unselected entries (PaddingLeft=3 + 2 indent)
-			lines = append(lines, "     "+notesText)
-		}
+		// Indent notes to align with entry content (3 chars from entry style + 2 indent)
+		lines = append(lines, "     "+notesText)
 	}
 
 	return strings.Join(lines, "\n")

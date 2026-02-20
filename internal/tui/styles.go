@@ -61,15 +61,21 @@ var (
 
 	// Entry styles
 	SelectedEntry = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.Border{Left: "▎"}).
 			BorderForeground(accentColor).
+			BorderTop(false).
+			BorderRight(false).
+			BorderBottom(false).
+			BorderLeft(true).
 			Background(selectedBg).
-			Padding(0, 1).
-			MarginBottom(1)
+			PaddingLeft(2).
+			Padding(1, 0, 1, 2).
+			MarginBottom(0)
 
 	UnselectedEntry = lipgloss.NewStyle().
 			PaddingLeft(3).
-			MarginBottom(1)
+			Padding(1, 0, 1, 3).
+			MarginBottom(0)
 
 	// Entry path styles
 	ClientStyle  = lipgloss.NewStyle().Foreground(clientColor).Bold(true)
