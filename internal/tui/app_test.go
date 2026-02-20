@@ -1314,11 +1314,6 @@ func TestProjectSelectionView(t *testing.T) {
 		if len(items) != 0 {
 			t.Errorf("expected empty project list, got %d items", len(items))
 		}
-
-		// Title is no longer set on the list (rendered in shell breadcrumb instead)
-		if len(items) != 0 {
-			t.Errorf("expected empty project list, got %d items after re-check", len(items))
-		}
 	})
 }
 

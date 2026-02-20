@@ -61,6 +61,10 @@ func (m Model) buildShellBox(content string, width int, footerKeys []string) str
 
 	footerText := " " + strings.Join(footerKeys, " ")
 	footerWidth := lipgloss.Width(footerText)
+	if footerWidth > width-2 {
+		footerText = truncateStyledLine(footerText, width-2)
+	}
+	footerWidth = lipgloss.Width(footerText)
 	if footerWidth < width-2 {
 		footerText = footerText + strings.Repeat(" ", width-2-footerWidth)
 	}

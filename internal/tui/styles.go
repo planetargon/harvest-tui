@@ -35,12 +35,6 @@ var (
 // Tokyo Night Component Styles
 var (
 	// Base text styles
-	BaseText = lipgloss.NewStyle().
-			Foreground(primaryText)
-
-	SecondaryText = lipgloss.NewStyle().
-			Foreground(mutedText)
-
 	MutedText = lipgloss.NewStyle().
 			Foreground(mutedText)
 
@@ -129,23 +123,12 @@ var (
 				MarginLeft(1)
 
 	// Summary bar styles
-	SummaryBar = lipgloss.NewStyle().
-			Background(cardBg).
-			Padding(0, 2).
-			MarginTop(1).
-			MarginBottom(1)
-
 	TotalLabel = lipgloss.NewStyle().
 			Foreground(mutedText)
 
 	TotalValue = lipgloss.NewStyle().
 			Foreground(accentColor).
 			Bold(true)
-
-	RunningBadge = lipgloss.NewStyle().
-			Background(selectedBg).
-			Foreground(mutedText).
-			Padding(0, 1)
 
 	// Keybinding styles
 	KeyStyle = lipgloss.NewStyle().
@@ -168,45 +151,6 @@ var (
 			Italic(true).
 			Padding(2, 0).
 			Align(lipgloss.Center)
-
-	// Delete confirmation
-	ConfirmBox = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(pinkColor).
-			Padding(1, 2).
-			Width(50)
-
-	ConfirmTitle = lipgloss.NewStyle().
-			Foreground(pinkColor).
-			Bold(true)
-
-	// Help overlay
-	HelpBox = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(accentColor).
-		Padding(1, 2).
-		Width(40)
-
-	HelpTitleStyle = lipgloss.NewStyle().
-			Foreground(accentColor).
-			Bold(true).
-			MarginBottom(1)
-
-	HelpKeyStyle = lipgloss.NewStyle().
-			Foreground(accentColor).
-			Width(12)
-
-	HelpDescStyle = lipgloss.NewStyle().
-			Foreground(primaryText)
-
-	// Input styles
-	FocusedInput = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(accentColor)
-
-	UnfocusedInput = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(borderColor)
 )
 
 // RenderEntryPath renders the client → project → task path with proper styling.

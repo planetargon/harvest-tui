@@ -142,13 +142,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		contentW := m.shellWidth() - 4
-		contentH := msg.Height - 7
-		if contentH < 5 {
-			contentH = 5
-		}
-		m.projectList.SetSize(contentW, contentH)
-		m.taskList.SetSize(contentW, contentH)
+		m.setListSizes()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -479,6 +473,17 @@ func newTaskDelegate() list.DefaultDelegate {
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = false
 	return delegate
+}
+
+// setListSizes updates the project and task list dimensions based on the shell width and window height.
+func (m *Model) setListSizes() {
+	contentW := m.shellWidth() - 4
+	contentH := m.height - 7
+	if contentH < 5 {
+		contentH = 5
+	}
+	m.projectList.SetSize(contentW, contentH)
+	m.taskList.SetSize(contentW, contentH)
 }
 
 // newShellList creates a list.Model with title and status bar disabled.
@@ -991,12 +996,7 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.durationInput = &durationInput
 
 			m.updateProjectList()
-			contentW := m.shellWidth() - 4
-			contentH := m.height - 7
-			if contentH < 5 {
-				contentH = 5
-			}
-			m.projectList.SetSize(contentW, contentH)
+			m.setListSizes()
 			return m, nil
 		} else {
 			m.setStatusMessage("No projects available. Please check your Harvest configuration.")
