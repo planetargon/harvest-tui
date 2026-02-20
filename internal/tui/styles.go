@@ -9,7 +9,6 @@ import (
 // Tokyo Night Color Palette
 var (
 	// Base colors
-	bgColor     = lipgloss.Color("#1a1b26")
 	cardBg      = lipgloss.Color("#24283b")
 	selectedBg  = lipgloss.Color("#2f3549")
 	borderColor = lipgloss.Color("#3b4261")

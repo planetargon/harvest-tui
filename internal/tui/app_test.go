@@ -11,6 +11,149 @@ import (
 	"github.com/planetargon/argon-harvest-tui/internal/state"
 )
 
+func TestDurationParsing(t *testing.T) {
+	t.Run("given valid duration 1:30 when parsed then returns 1.5 hours", func(t *testing.T) {
+		result, err := parseDuration("1:30")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		expected := 1.5
+		if result != expected {
+			t.Errorf("expected %f, got %f", expected, result)
+		}
+	})
+
+	t.Run("given valid duration 0:15 when parsed then returns 0.25 hours", func(t *testing.T) {
+		result, err := parseDuration("0:15")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		expected := 0.25
+		if result != expected {
+			t.Errorf("expected %f, got %f", expected, result)
+		}
+	})
+
+	t.Run("given valid duration 2:45 when parsed then returns 2.75 hours", func(t *testing.T) {
+		result, err := parseDuration("2:45")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		expected := 2.75
+		if result != expected {
+			t.Errorf("expected %f, got %f", expected, result)
+		}
+	})
+
+	t.Run("given valid duration 0:00 when parsed then returns 0 hours", func(t *testing.T) {
+		result, err := parseDuration("0:00")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		expected := 0.0
+		if result != expected {
+			t.Errorf("expected %f, got %f", expected, result)
+		}
+	})
+
+	t.Run("given empty string when parsed then returns error", func(t *testing.T) {
+		_, err := parseDuration("")
+		if err == nil {
+			t.Fatal("expected error for empty string")
+		}
+		if err.Error() != "duration cannot be empty" {
+			t.Errorf("expected 'duration cannot be empty', got '%s'", err.Error())
+		}
+	})
+
+	t.Run("given whitespace only when parsed then returns error", func(t *testing.T) {
+		_, err := parseDuration("   ")
+		if err == nil {
+			t.Fatal("expected error for whitespace only")
+		}
+		if err.Error() != "duration cannot be empty" {
+			t.Errorf("expected 'duration cannot be empty', got '%s'", err.Error())
+		}
+	})
+
+	t.Run("given invalid format abc when parsed then returns validation error", func(t *testing.T) {
+		_, err := parseDuration("abc")
+		if err == nil {
+			t.Fatal("expected error for invalid format")
+		}
+		expectedMsg := "invalid duration format. Use HH:MM (e.g., 1:30)"
+		if err.Error() != expectedMsg {
+			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
+		}
+	})
+
+	t.Run("given invalid format 1:2:3 when parsed then returns validation error", func(t *testing.T) {
+		_, err := parseDuration("1:2:3")
+		if err == nil {
+			t.Fatal("expected error for too many parts")
+		}
+		expectedMsg := "invalid duration format. Use HH:MM (e.g., 1:30)"
+		if err.Error() != expectedMsg {
+			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
+		}
+	})
+
+	t.Run("given invalid hours abc:30 when parsed then returns validation error", func(t *testing.T) {
+		_, err := parseDuration("abc:30")
+		if err == nil {
+			t.Fatal("expected error for non-numeric hours")
+		}
+		expectedMsg := "invalid duration format. Use HH:MM (e.g., 1:30)"
+		if err.Error() != expectedMsg {
+			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
+		}
+	})
+
+	t.Run("given invalid minutes 1:abc when parsed then returns validation error", func(t *testing.T) {
+		_, err := parseDuration("1:abc")
+		if err == nil {
+			t.Fatal("expected error for non-numeric minutes")
+		}
+		expectedMsg := "invalid duration format. Use HH:MM (e.g., 1:30)"
+		if err.Error() != expectedMsg {
+			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
+		}
+	})
+
+	t.Run("given negative hours -1:30 when parsed then returns validation error", func(t *testing.T) {
+		_, err := parseDuration("-1:30")
+		if err == nil {
+			t.Fatal("expected error for negative hours")
+		}
+		expectedMsg := "invalid duration format. Use HH:MM (e.g., 1:30)"
+		if err.Error() != expectedMsg {
+			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
+		}
+	})
+
+	t.Run("given invalid minutes 1:60 when parsed then returns validation error", func(t *testing.T) {
+		_, err := parseDuration("1:60")
+		if err == nil {
+			t.Fatal("expected error for minutes >= 60")
+		}
+		expectedMsg := "invalid duration format. Use HH:MM (e.g., 1:30)"
+		if err.Error() != expectedMsg {
+			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
+		}
+	})
+
+	t.Run("given negative minutes 1:-15 when parsed then returns validation error", func(t *testing.T) {
+		_, err := parseDuration("1:-15")
+		if err == nil {
+			t.Fatal("expected error for negative minutes")
+		}
+		expectedMsg := "invalid duration format. Use HH:MM (e.g., 1:30)"
+		if err.Error() != expectedMsg {
+			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
+		}
+	})
+}
+
 func TestNewModel(t *testing.T) {
 	t.Run("given valid config and dependencies when NewModel called then returns model with correct initial state", func(t *testing.T) {
 		cfg := &config.Config{
