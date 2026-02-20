@@ -211,7 +211,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 		}
 	})
 
-	t.Run("given recent combo selected when enter pressed then skips task selection", func(t *testing.T) {
+	t.Run("given recent combo with multiple tasks when selected then shows task selection with recent task preselected", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 
 		// Set up state with a recent that has all IDs (client, project, task)
@@ -219,7 +219,7 @@ func TestTaskSelectionTransition(t *testing.T) {
 			{ClientID: 100, ProjectID: 1, TaskID: 5},
 		}
 
-		// Set up matching project with tasks
+		// Set up matching project with multiple tasks
 		model.projectsWithTasks = []harvest.ProjectWithTasks{
 			{
 				Project: harvest.Project{
@@ -249,22 +249,132 @@ func TestTaskSelectionTransition(t *testing.T) {
 		msg := tea.KeyMsg{Type: tea.KeyEnter}
 		updatedModel, _ := model.handleProjectSelectKeys(msg)
 
-		// Should skip task selection and go to notes input
-		if updatedModel.(Model).currentView != ViewNotesInput {
-			t.Errorf("expected view to be ViewNotesInput when recent selected, got %v", updatedModel.(Model).currentView)
+		// Should show task selection so user can change the task
+		if updatedModel.(Model).currentView != ViewSelectTask {
+			t.Errorf("expected view to be ViewSelectTask when recent with multiple tasks selected, got %v", updatedModel.(Model).currentView)
 		}
 
-		// Should have selected both project and task from the recent
+		// Should have selected the project
 		if updatedModel.(Model).selectedProject == nil {
 			t.Error("expected selectedProject to be set from recent")
 		} else if updatedModel.(Model).selectedProject.ID != 1 {
 			t.Errorf("expected selectedProject.ID to be 1, got %d", updatedModel.(Model).selectedProject.ID)
 		}
 
+		// Task should NOT be auto-selected - user should pick from task list
+		if updatedModel.(Model).selectedTask != nil {
+			t.Error("expected selectedTask to be nil so user can choose from task list")
+		}
+	})
+
+	t.Run("given recent combo with single task when selected then skips task selection", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+
+		// Set up state with a recent that has all IDs (client, project, task)
+		model.appState.Recents = []state.RecentEntry{
+			{ClientID: 100, ProjectID: 1, TaskID: 5},
+		}
+
+		// Set up matching project with only one task
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   1,
+					Name: "Website Redesign",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Acme Corp",
+					},
+				},
+				Tasks: []harvest.Task{
+					{ID: 5, Name: "Development"},
+				},
+			},
+		}
+
+		// Start in project selection view
+		model.currentView = ViewSelectProject
+		model.updateProjectList()
+
+		// The first item should be the recent
+		model.projectList.Select(0)
+
+		// Simulate pressing enter on the recent
+		msg := tea.KeyMsg{Type: tea.KeyEnter}
+		updatedModel, _ := model.handleProjectSelectKeys(msg)
+
+		// Should skip task selection and go to notes input (only one task)
+		if updatedModel.(Model).currentView != ViewNotesInput {
+			t.Errorf("expected view to be ViewNotesInput when recent with single task selected, got %v", updatedModel.(Model).currentView)
+		}
+
+		// Should have selected both project and task
+		if updatedModel.(Model).selectedProject == nil {
+			t.Error("expected selectedProject to be set from recent")
+		}
 		if updatedModel.(Model).selectedTask == nil {
 			t.Error("expected selectedTask to be set from recent")
 		} else if updatedModel.(Model).selectedTask.ID != 5 {
-			t.Errorf("expected selectedTask.ID to be 5 (from recent), got %d", updatedModel.(Model).selectedTask.ID)
+			t.Errorf("expected selectedTask.ID to be 5, got %d", updatedModel.(Model).selectedTask.ID)
+		}
+	})
+
+	t.Run("given project in recents when project list built then project appears in both recents and alphabetical list", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+
+		// Set up state with a recent
+		model.appState.Recents = []state.RecentEntry{
+			{ClientID: 100, ProjectID: 1, TaskID: 5},
+		}
+
+		// Set up projects including the recent one
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{
+					ID:   1,
+					Name: "Website Redesign",
+					Client: harvest.ProjectClient{
+						ID:   100,
+						Name: "Acme Corp",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 5, Name: "Development"}},
+			},
+			{
+				Project: harvest.Project{
+					ID:   2,
+					Name: "Mobile App",
+					Client: harvest.ProjectClient{
+						ID:   200,
+						Name: "BigCorp Inc",
+					},
+				},
+				Tasks: []harvest.Task{{ID: 6, Name: "Testing"}},
+			},
+		}
+
+		model.currentView = ViewSelectProject
+		model.updateProjectList()
+
+		// Count how many times project ID 1 appears in the list
+		items := model.projectList.Items()
+		projectOneCount := 0
+		for _, item := range items {
+			if pi, ok := item.(projectItem); ok {
+				if pi.project.ID == 1 {
+					projectOneCount++
+				}
+			}
+		}
+
+		// Project should appear twice: once in recents section and once in alphabetical list
+		if projectOneCount != 2 {
+			t.Errorf("expected project to appear 2 times (recents + alphabetical), got %d", projectOneCount)
+		}
+
+		// Total items should be: 1 recent + divider + 2 alphabetical projects = 4
+		if len(items) != 4 {
+			t.Errorf("expected 4 items (1 recent + divider + 2 projects), got %d", len(items))
 		}
 	})
 

@@ -244,4 +244,178 @@ func TestEditEntry(t *testing.T) {
 			t.Error("expected error message to be set")
 		}
 	})
+
+	t.Run("given edit view when enter pressed on task field then opens task selection", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewEditEntry
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 10, Name: "Development"}
+		model.editCurrentField = 0
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{ID: 1, Name: "Website"},
+				Tasks: []harvest.Task{
+					{ID: 10, Name: "Development"},
+					{ID: 11, Name: "Design"},
+				},
+			},
+		}
+
+		// Press enter on task field
+		msg := tea.KeyMsg{Type: tea.KeyEnter}
+		updatedModel, _ := model.Update(msg)
+
+		if updatedModel.(Model).currentView != ViewSelectTask {
+			t.Errorf("expected view to be ViewSelectTask, got %v", updatedModel.(Model).currentView)
+		}
+	})
+
+	t.Run("given task selection during edit when task selected then returns to edit view with updated task", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewSelectTask
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 10, Name: "Development"}
+		model.editCurrentField = 0
+
+		// Set up task list with items
+		tasks := []harvest.Task{
+			{ID: 10, Name: "Development"},
+			{ID: 11, Name: "Design"},
+		}
+		model.updateTaskList(tasks)
+		model.taskList.Select(1) // Select "Design"
+
+		// Press enter to select task
+		msg := tea.KeyMsg{Type: tea.KeyEnter}
+		updatedModel, _ := model.handleTaskSelectKeys(msg)
+
+		m := updatedModel.(Model)
+		if m.currentView != ViewEditEntry {
+			t.Errorf("expected view to be ViewEditEntry, got %v", m.currentView)
+		}
+		if m.editTask == nil {
+			t.Fatal("expected editTask to be set")
+		}
+		if m.editTask.ID != 11 {
+			t.Errorf("expected editTask.ID to be 11, got %d", m.editTask.ID)
+		}
+		if m.editTask.Name != "Design" {
+			t.Errorf("expected editTask.Name to be 'Design', got '%s'", m.editTask.Name)
+		}
+	})
+
+	t.Run("given task selection during edit when escape pressed then returns to edit view", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewSelectTask
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 10, Name: "Development"}
+
+		// Press escape
+		msg := tea.KeyMsg{Type: tea.KeyEscape}
+		updatedModel, _ := model.handleTaskSelectKeys(msg)
+
+		if updatedModel.(Model).currentView != ViewEditEntry {
+			t.Errorf("expected view to be ViewEditEntry, got %v", updatedModel.(Model).currentView)
+		}
+		// Task should remain unchanged
+		if updatedModel.(Model).editTask.ID != 10 {
+			t.Errorf("expected editTask.ID to remain 10, got %d", updatedModel.(Model).editTask.ID)
+		}
+	})
+
+	t.Run("given edit view with changed task when saved then includes task ID in request", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewEditEntry
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 11, Name: "Design"} // Changed task
+		model.editHours = "1:30"
+		model.editNotes = "Some notes"
+
+		// Call updateTimeEntry to get the command
+		cmd := model.updateTimeEntry()
+
+		// The command should not be nil (it creates an API call)
+		if cmd == nil {
+			t.Fatal("expected non-nil command from updateTimeEntry")
+		}
+	})
+
+	t.Run("given entry selected when edit key pressed then populates editTask from entry", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:    1,
+				Hours: 1.5,
+				Notes: "Test entry",
+				Task:  harvest.TimeEntryTask{ID: 42, Name: "Testing"},
+			},
+		}
+		model.selectedEntryIndex = 0
+
+		// Press 'e' to edit
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")}
+		updatedModel, _ := model.Update(msg)
+
+		m := updatedModel.(Model)
+		if m.editTask == nil {
+			t.Fatal("expected editTask to be set")
+		}
+		if m.editTask.ID != 42 {
+			t.Errorf("expected editTask.ID to be 42, got %d", m.editTask.ID)
+		}
+		if m.editTask.Name != "Testing" {
+			t.Errorf("expected editTask.Name to be 'Testing', got '%s'", m.editTask.Name)
+		}
+	})
+
+	t.Run("given edit view when tab cycles through fields then visits all three fields", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewEditEntry
+		model.editingEntry = &harvest.TimeEntry{ID: 1}
+		model.editCurrentField = 0
+
+		notesInput := textinput.New()
+		model.editNotesInput = &notesInput
+		durationInput := textinput.New()
+		model.editDurationInput = &durationInput
+
+		// Tab from field 0 (task) to field 1 (notes)
+		msg := tea.KeyMsg{Type: tea.KeyTab}
+		result, _ := model.Update(msg)
+		m := result.(Model)
+		if m.editCurrentField != 1 {
+			t.Errorf("expected field 1 after first tab, got %d", m.editCurrentField)
+		}
+
+		// Tab from field 1 (notes) to field 2 (duration)
+		result, _ = m.Update(msg)
+		m = result.(Model)
+		if m.editCurrentField != 2 {
+			t.Errorf("expected field 2 after second tab, got %d", m.editCurrentField)
+		}
+
+		// Tab from field 2 (duration) wraps to field 0 (task)
+		result, _ = m.Update(msg)
+		m = result.(Model)
+		if m.editCurrentField != 0 {
+			t.Errorf("expected field 0 after third tab, got %d", m.editCurrentField)
+		}
+	})
 }

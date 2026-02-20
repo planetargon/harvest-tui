@@ -440,7 +440,7 @@ func TestConfirmDeleteViewRendering(t *testing.T) {
 }
 
 func TestEditFormTabNavigation(t *testing.T) {
-	t.Run("given edit view on notes field when tab pressed then moves to duration field", func(t *testing.T) {
+	t.Run("given edit view on task field when tab pressed then moves to notes field", func(t *testing.T) {
 		model := newTestModel()
 		model.currentView = ViewEditEntry
 		model.editingEntry = &harvest.TimeEntry{ID: 1, Hours: 1.5, Notes: "Test"}
@@ -455,11 +455,11 @@ func TestEditFormTabNavigation(t *testing.T) {
 		}
 	})
 
-	t.Run("given edit view on duration field when tab pressed then wraps to notes field", func(t *testing.T) {
+	t.Run("given edit view on duration field when tab pressed then wraps to task field", func(t *testing.T) {
 		model := newTestModel()
 		model.currentView = ViewEditEntry
 		model.editingEntry = &harvest.TimeEntry{ID: 1, Hours: 1.5, Notes: "Test"}
-		model.editCurrentField = 1
+		model.editCurrentField = 2
 
 		msg := tea.KeyMsg{Type: tea.KeyTab}
 		updatedModel, _ := model.Update(msg)
@@ -470,7 +470,7 @@ func TestEditFormTabNavigation(t *testing.T) {
 		}
 	})
 
-	t.Run("given edit view on notes field when shift+tab pressed then wraps to duration field", func(t *testing.T) {
+	t.Run("given edit view on task field when shift+tab pressed then wraps to duration field", func(t *testing.T) {
 		model := newTestModel()
 		model.currentView = ViewEditEntry
 		model.editingEntry = &harvest.TimeEntry{ID: 1, Hours: 1.5, Notes: "Test"}
@@ -480,8 +480,8 @@ func TestEditFormTabNavigation(t *testing.T) {
 		updatedModel, _ := model.Update(msg)
 		m := updatedModel.(Model)
 
-		if m.editCurrentField != 1 {
-			t.Errorf("expected editCurrentField to wrap to 1 on shift+tab, got %d", m.editCurrentField)
+		if m.editCurrentField != 2 {
+			t.Errorf("expected editCurrentField to wrap to 2 on shift+tab, got %d", m.editCurrentField)
 		}
 	})
 }

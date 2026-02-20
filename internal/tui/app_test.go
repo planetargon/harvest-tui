@@ -1711,9 +1711,9 @@ func TestProjectListRecents(t *testing.T) {
 		model.updateProjectList()
 		items := model.projectList.Items()
 
-		// Should have 5 items: 3 recents + 1 divider + 1 non-recent (Backend API)
-		if len(items) != 5 {
-			t.Fatalf("expected 5 items, got %d", len(items))
+		// Should have 8 items: 3 recents + 1 divider + 4 all projects (including those in recents)
+		if len(items) != 8 {
+			t.Fatalf("expected 8 items, got %d", len(items))
 		}
 
 		// Verify recents are at top in order
@@ -1748,13 +1748,21 @@ func TestProjectListRecents(t *testing.T) {
 			t.Fatal("item 3 is not a dividerItem")
 		}
 
-		// Last item should be the non-recent project (Backend API)
-		lastItem, ok := items[4].(projectItem)
-		if !ok {
-			t.Fatal("last item is not a projectItem")
+		// All projects should appear in the alphabetical section (sorted by client then project)
+		expectedAlpha := []string{
+			"Acme Corp → Backend API",
+			"Acme Corp → Website Redesign",
+			"BigCorp Inc → Mobile App",
+			"Charlie Ltd → Desktop App",
 		}
-		if lastItem.project.Name != "Backend API" {
-			t.Errorf("expected last item to be 'Backend API', got '%s'", lastItem.project.Name)
+		for i, expected := range expectedAlpha {
+			item, ok := items[4+i].(projectItem)
+			if !ok {
+				t.Fatalf("item %d is not a projectItem", 4+i)
+			}
+			if item.Title() != expected {
+				t.Errorf("item %d: expected title '%s', got '%s'", 4+i, expected, item.Title())
+			}
 		}
 	})
 
@@ -1797,8 +1805,8 @@ func TestProjectListRecents(t *testing.T) {
 		model.updateProjectList()
 		items := model.projectList.Items()
 
-		if len(items) != 4 {
-			t.Fatalf("expected 4 items (1 recent + 1 divider + 2 non-recents), got %d", len(items))
+		if len(items) != 5 {
+			t.Fatalf("expected 5 items (1 recent + 1 divider + 3 all projects), got %d", len(items))
 		}
 
 		// First should be the recent
@@ -1815,9 +1823,10 @@ func TestProjectListRecents(t *testing.T) {
 			t.Fatal("item 1 is not a dividerItem")
 		}
 
-		// Remaining should be sorted alphabetically by client then project
+		// All projects should be sorted alphabetically by client then project
 		expectedTitles := []string{
-			"Beta Corp → Alpha Project", // Beta comes before Charlie alphabetically
+			"Acme Corp → Website Redesign", // Also appears in recents
+			"Beta Corp → Alpha Project",    // Beta comes before Charlie alphabetically
 			"Charlie Ltd → Zebra Project",
 		}
 
@@ -1857,9 +1866,9 @@ func TestProjectListRecents(t *testing.T) {
 		model.updateProjectList()
 		items := model.projectList.Items()
 
-		// Should have 2 items (the valid recent + divider, stale ignored)
-		if len(items) != 2 {
-			t.Fatalf("expected 2 items (1 recent + 1 divider), got %d", len(items))
+		// Should have 3 items (1 valid recent + divider + 1 project in alphabetical list)
+		if len(items) != 3 {
+			t.Fatalf("expected 3 items (1 recent + 1 divider + 1 project), got %d", len(items))
 		}
 
 		item, ok := items[0].(projectItem)
