@@ -1,6 +1,8 @@
 # Harvest TUI Time Tracker
 
-A terminal-based time tracking application that connects to the Harvest API v2, allowing users to manage their daily time entries.
+A terminal-based time tracking application that connects to the [Harvest API v2](https://help.getharvest.com/api-v2/), allowing users to manage their daily time entries from the CLI.
+
+[Planet Argon](https://www.planetargon.com) has been a long-time customer of Harvest and our software engineers wanted to build a tool for tracking client billables from the command line. This is an open source project that integrates with the Harvest API — there is no collaboration with or endorsement by either party.
 
 ### Time Sheet view
 
@@ -131,6 +133,10 @@ make build
 ```bash
 make check
 ```
+
+## Disclaimer
+
+[Harvest](https://www.getharvest.com/) is a registered trademark of [Bending Spoons US Inc](https://bendingspoons.com/). This project has no direct affiliation with Harvest or Bending Spoons. It is an independent open source project that integrates with the [Harvest API v2](https://help.getharvest.com/api-v2/).
 
 ## License
 
