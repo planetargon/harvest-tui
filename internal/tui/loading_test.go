@@ -155,6 +155,18 @@ func TestLoadingView(t *testing.T) {
 		}
 	})
 
+	t.Run("given loading view when help key pressed then stays in ViewLoading", func(t *testing.T) {
+		model := newLoadingModel()
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
+		newModel, _ := model.Update(msg)
+		m := newModel.(Model)
+
+		if m.currentView != ViewLoading {
+			t.Errorf("expected currentView to remain ViewLoading, got %v", m.currentView)
+		}
+	})
+
 	t.Run("given loading view when ctrl+c pressed then quits", func(t *testing.T) {
 		model := newLoadingModel()
 

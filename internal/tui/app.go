@@ -373,11 +373,18 @@ func (m Model) View() string {
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	previousView := m.currentView
 
+	// Ctrl+C always quits, even during loading
+	if msg.String() == "ctrl+c" {
+		return m, tea.Quit
+	}
+
+	// Block all other input during loading
+	if m.currentView == ViewLoading {
+		return m, nil
+	}
+
 	// Global keybindings that work in all views
 	switch msg.String() {
-	case "ctrl+c":
-		// Ctrl+C always quits
-		return m, tea.Quit
 	case "?":
 		if m.currentView == ViewHelp {
 			m.currentView = ViewList
@@ -385,11 +392,6 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.currentView = ViewHelp
 		}
 		m.clearStatusMessage()
-		return m, nil
-	}
-
-	// Block all other input during loading
-	if m.currentView == ViewLoading {
 		return m, nil
 	}
 
