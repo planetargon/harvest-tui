@@ -3,6 +3,7 @@ package tui
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/planetargon/harvest-tui/internal/config"
 	"github.com/planetargon/harvest-tui/internal/harvest"
@@ -462,6 +463,72 @@ func TestFilterResetOnNavigation(t *testing.T) {
 
 		if m.currentView != ViewSelectProject {
 			t.Errorf("expected ViewSelectProject, got %v", m.currentView)
+		}
+	})
+
+	t.Run("given project list with active filter when esc pressed then stays in project selection", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewSelectProject
+		model.newEntryCurrentField = -1
+
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{ID: 1, Name: "Website Redesign", Client: harvest.ProjectClient{ID: 100, Name: "Acme Corp"}},
+				Tasks:   []harvest.Task{{ID: 1, Name: "Development"}},
+			},
+		}
+		model.updateProjectList()
+
+		// Simulate pressing "/" to activate filtering
+		slashMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+		model.projectList, _ = model.projectList.Update(slashMsg)
+
+		// Verify filter is now active
+		if model.projectList.FilterState() == list.Unfiltered {
+			t.Fatal("expected filter to be active after pressing /")
+		}
+
+		// Now press esc - should NOT navigate away
+		escMsg := tea.KeyMsg{Type: tea.KeyEscape}
+		updatedModel, _ := model.handleProjectSelectKeys(escMsg)
+		m := updatedModel.(Model)
+
+		if m.currentView != ViewSelectProject {
+			t.Errorf("expected to stay in ViewSelectProject when filter active, got %v", m.currentView)
+		}
+	})
+
+	t.Run("given task list with active filter when esc pressed then stays in task selection", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewSelectTask
+
+		// Set up a project with tasks so the task list has items
+		project := harvest.Project{ID: 1, Name: "Website Redesign", Client: harvest.ProjectClient{ID: 100, Name: "Acme Corp"}}
+		model.selectedProject = &project
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: project,
+				Tasks:   []harvest.Task{{ID: 1, Name: "Development"}, {ID: 2, Name: "Testing"}},
+			},
+		}
+		model.updateTaskList([]harvest.Task{{ID: 1, Name: "Development"}, {ID: 2, Name: "Testing"}})
+
+		// Simulate pressing "/" to activate filtering
+		slashMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+		model.taskList, _ = model.taskList.Update(slashMsg)
+
+		// Verify filter is now active
+		if model.taskList.FilterState() == list.Unfiltered {
+			t.Fatal("expected filter to be active after pressing /")
+		}
+
+		// Now press esc - should NOT navigate away
+		escMsg := tea.KeyMsg{Type: tea.KeyEscape}
+		updatedModel, _ := model.handleTaskSelectKeys(escMsg)
+		m := updatedModel.(Model)
+
+		if m.currentView != ViewSelectTask {
+			t.Errorf("expected to stay in ViewSelectTask when filter active, got %v", m.currentView)
 		}
 	})
 }
