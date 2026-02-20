@@ -21,13 +21,13 @@ func (m Model) renderStyledListView() string {
 	dateNav := ArrowNavStyle.Render("◀ ") + DateStyle.Render(dateStr) + ArrowNavStyle.Render(" ▶")
 
 	// Title bar with Tokyo Night styling
-	titleBar := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		"  "+TitleStyle.Render("🌾 Harvest Time Tracker"),
-		lipgloss.NewStyle().Width(width-30-lipgloss.Width(dateNav)).Render(""),
-		dateNav,
-		"  ",
-	)
+	titleText := "  " + TitleStyle.Render("🌾 Harvest Time Tracker")
+	titleSuffix := dateNav + "  "
+	spacerWidth := width - 2 - lipgloss.Width(titleText) - lipgloss.Width(titleSuffix)
+	if spacerWidth < 1 {
+		spacerWidth = 1
+	}
+	titleBar := titleText + strings.Repeat(" ", spacerWidth) + titleSuffix
 
 	// Calculate daily total with accent color
 	totalHours := 0.0
@@ -57,7 +57,7 @@ func (m Model) renderStyledListView() string {
 	sectionHeader := "  " + entriesText + strings.Repeat(" ", paddingWidth) + totalLabelText + totalValue + "  "
 
 	// Divider with Tokyo Night styling
-	divider := "  " + RenderDivider()
+	divider := "  " + RenderDividerWidth(width-4)
 
 	// Handle loading state
 	if m.loading {
@@ -161,14 +161,18 @@ func (m Model) wrapInStyledBox(content string, width int) string {
 		RenderKeybinding("?", "help"),
 		RenderKeybinding("q", "quit"),
 	}
-	footerText := "  " + strings.Join(keybindings, "  ")
-	footerPadded := footerText + strings.Repeat(" ", max(0, width-2-lipgloss.Width(footerText)))
+	footerText := " " + strings.Join(keybindings, " ")
+	footerWidth := lipgloss.Width(footerText)
+	if footerWidth < width-2 {
+		footerPadded := footerText + strings.Repeat(" ", width-2-footerWidth)
+		footerText = footerPadded
+	}
 
 	// Bottom border
 	bottom := borderStyle.Render("└" + strings.Repeat("─", width-2) + "┘")
 
 	boxedLines = append(boxedLines, footerSeparator)
-	boxedLines = append(boxedLines, borderStyle.Render("│")+footerPadded+borderStyle.Render("│"))
+	boxedLines = append(boxedLines, borderStyle.Render("│")+footerText+borderStyle.Render("│"))
 	boxedLines = append(boxedLines, bottom)
 
 	return strings.Join(boxedLines, "\n")
@@ -232,11 +236,11 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 	if entry.Notes != "" {
 		notesText := RenderNotes(truncateString(entry.Notes, maxWidth-8))
 		if isSelected {
-			// Add padding to align with card content
+			// Add padding to align with card content (border + padding = 2 chars)
 			lines = append(lines, "   "+notesText)
 		} else {
-			// Add padding to align with unselected entries
-			lines = append(lines, "      "+notesText)
+			// Add padding to align with unselected entries (PaddingLeft=3 + 2 indent)
+			lines = append(lines, "     "+notesText)
 		}
 	}
 

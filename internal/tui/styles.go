@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -388,9 +389,17 @@ func RenderNotes(notes string) string {
 	return NotesStyle.Render(`"` + notes + `"`)
 }
 
-// RenderDivider renders a horizontal divider.
+// RenderDivider renders a horizontal divider with a default width.
 func RenderDivider() string {
-	return DividerStyle.Render("─────────────────────────────────────────")
+	return RenderDividerWidth(41)
+}
+
+// RenderDividerWidth renders a horizontal divider with the specified width.
+func RenderDividerWidth(width int) string {
+	if width < 1 {
+		width = 1
+	}
+	return DividerStyle.Render(strings.Repeat("─", width))
 }
 
 // RenderKeybinding renders a key binding with styled key and description.
