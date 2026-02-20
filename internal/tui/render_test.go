@@ -994,7 +994,7 @@ func TestStatusMessageClearedOnViewTransition(t *testing.T) {
 		}
 	})
 
-	t.Run("given status message when staying on same view then message is preserved", func(t *testing.T) {
+	t.Run("given status message when staying on same view then view-transition clear does not interfere", func(t *testing.T) {
 		model := newTestModel()
 		model.currentView = ViewList
 		model.setStatusMessage("Cannot edit locked time entry.")
@@ -1003,7 +1003,8 @@ func TestStatusMessageClearedOnViewTransition(t *testing.T) {
 		}
 		model.selectedEntryIndex = 0
 
-		// Press down arrow (stays on list view)
+		// Press down arrow — stays on ViewList, but up/down has its own
+		// status-clearing behavior so the message gets cleared by that path
 		msg := tea.KeyMsg{Type: tea.KeyDown}
 		updatedModel, _ := model.Update(msg)
 		m := updatedModel.(Model)
@@ -1011,33 +1012,43 @@ func TestStatusMessageClearedOnViewTransition(t *testing.T) {
 		if m.currentView != ViewList {
 			t.Fatal("expected to stay on ViewList")
 		}
-		// Note: up/down clears status messages as a separate UX feature,
-		// but the view-transition clear should not interfere
+		if m.statusMessage != "" {
+			t.Errorf("expected status message to be cleared by list navigation, got %q", m.statusMessage)
+		}
 	})
 }
 
 func TestRenderStatusLine(t *testing.T) {
 	t.Run("given success message then renders with success style", func(t *testing.T) {
 		model := newTestModel()
-		model.setStatusMessage("Time entry deleted successfully")
+		msg := "Time entry deleted successfully"
+		model.setStatusMessage(msg)
 		line := model.renderStatusLine()
-		if line == "" {
-			t.Fatal("expected non-empty status line")
-		}
-		if !strings.Contains(line, "deleted successfully") {
-			t.Errorf("expected status line to contain message, got %q", line)
+		expected := "  " + SuccessText.Render(msg)
+		if line != expected {
+			t.Errorf("expected success-styled line %q, got %q", expected, line)
 		}
 	})
 
 	t.Run("given error message then renders with error style", func(t *testing.T) {
 		model := newTestModel()
-		model.setStatusMessage("Failed to delete entry")
+		msg := "Failed to delete entry"
+		model.setStatusMessage(msg)
 		line := model.renderStatusLine()
-		if line == "" {
-			t.Fatal("expected non-empty status line")
+		expected := "  " + ErrorText.Render(msg)
+		if line != expected {
+			t.Errorf("expected error-styled line %q, got %q", expected, line)
 		}
-		if !strings.Contains(line, "Failed to delete") {
-			t.Errorf("expected status line to contain message, got %q", line)
+	})
+
+	t.Run("given warning message then renders with warning style", func(t *testing.T) {
+		model := newTestModel()
+		msg := "Loading tasks..."
+		model.setStatusMessage(msg)
+		line := model.renderStatusLine()
+		expected := "  " + WarningText.Render(msg)
+		if line != expected {
+			t.Errorf("expected warning-styled line %q, got %q", expected, line)
 		}
 	})
 
