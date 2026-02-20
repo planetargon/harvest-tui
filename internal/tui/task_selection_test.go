@@ -432,3 +432,36 @@ func TestTaskSelectionTransition(t *testing.T) {
 		}
 	})
 }
+
+func TestFilterResetOnNavigation(t *testing.T) {
+	cfg := &config.Config{Harvest: config.HarvestConfig{AccountID: "123456", AccessToken: "test-token"}}
+	client := &harvest.Client{}
+	appState := &state.State{}
+
+	t.Run("given project list with no active filter when esc pressed then navigates back", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewSelectProject
+		model.newEntryCurrentField = -1 // Not coming from new entry form
+
+		msg := tea.KeyMsg{Type: tea.KeyEscape}
+		updatedModel, _ := model.handleProjectSelectKeys(msg)
+		m := updatedModel.(Model)
+
+		if m.currentView != ViewList {
+			t.Errorf("expected ViewList, got %v", m.currentView)
+		}
+	})
+
+	t.Run("given task list with no active filter when esc pressed then navigates back", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewSelectTask
+
+		msg := tea.KeyMsg{Type: tea.KeyEscape}
+		updatedModel, _ := model.handleTaskSelectKeys(msg)
+		m := updatedModel.(Model)
+
+		if m.currentView != ViewSelectProject {
+			t.Errorf("expected ViewSelectProject, got %v", m.currentView)
+		}
+	})
+}

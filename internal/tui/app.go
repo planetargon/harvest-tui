@@ -1122,6 +1122,11 @@ func (m Model) handleProjectSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "esc":
+		// If the list is filtering or has a filter applied, let the list handle esc
+		if m.projectList.FilterState() != list.Unfiltered {
+			break
+		}
+		m.projectList.ResetFilter()
 		// Check if we're coming from new entry form
 		if m.newEntryCurrentField >= 0 && m.newEntryCurrentField <= 3 {
 			// Return to new entry form
@@ -1190,6 +1195,11 @@ func (m Model) handleTaskSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "esc":
+		// If the list is filtering or has a filter applied, let the list handle esc
+		if m.taskList.FilterState() != list.Unfiltered {
+			break
+		}
+		m.taskList.ResetFilter()
 		if m.editingEntry != nil {
 			// Return to edit view when editing
 			m.currentView = ViewEditEntry
