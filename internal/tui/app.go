@@ -203,21 +203,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// If user requested task edit while projects were loading, open it now
 			if m.pendingTaskEdit && m.editingEntry != nil && m.currentView == ViewEditEntry {
 				m.pendingTaskEdit = false
-				for _, pwt := range m.projectsWithTasks {
-					if pwt.Project.ID == m.editingEntry.Project.ID {
-						m.selectedProject = &pwt.Project
-						m.updateTaskList(pwt.Tasks)
-						if m.editNotesInput != nil {
-							m.editNotesInput.Blur()
-						}
-						if m.editDurationInput != nil {
-							m.editDurationInput.Blur()
-						}
-						m.currentView = ViewSelectTask
-						return m, nil
-					}
+				if !m.openTaskSelectionForEdit() {
+					m.setStatusMessage("No tasks found for this project")
 				}
-				m.setStatusMessage("No tasks found for this project")
 			}
 		}
 		return m, nil
@@ -629,7 +617,12 @@ func (m Model) renderTaskSelectView() string {
 	titleBar := m.renderTitleBar()
 
 	// Breadcrumb header
-	breadcrumb := "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 2: Choose Task")
+	var breadcrumb string
+	if m.editingEntry != nil {
+		breadcrumb = "  " + AccentText.Render("Edit Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Change Task")
+	} else {
+		breadcrumb = "  " + AccentText.Render("New Time Entry") + ArrowStyle.Render(" → ") + MutedText.Render("Step 2: Choose Task")
+	}
 
 	// Show selected project
 	projectInfo := ""
@@ -1271,28 +1264,9 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.setStatusMessage("Loading tasks...")
 					return m, fetchProjectsWithTasksCmd(m.harvestClient)
 				}
-				// Find the project's tasks
-				var found bool
-				for _, pwt := range m.projectsWithTasks {
-					if pwt.Project.ID == m.editingEntry.Project.ID {
-						m.selectedProject = &pwt.Project
-						m.updateTaskList(pwt.Tasks)
-						found = true
-						break
-					}
-				}
-				if !found {
+				if !m.openTaskSelectionForEdit() {
 					m.setStatusMessage("No tasks found for this project")
-					return m, nil
 				}
-				// Blur text inputs while in task selection
-				if m.editNotesInput != nil {
-					m.editNotesInput.Blur()
-				}
-				if m.editDurationInput != nil {
-					m.editDurationInput.Blur()
-				}
-				m.currentView = ViewSelectTask
 			}
 			return m, nil
 		}
@@ -1329,6 +1303,26 @@ func (m *Model) updateEditFieldFocus() {
 			m.editDurationInput.Blur()
 		}
 	}
+}
+
+// openTaskSelectionForEdit finds the editing entry's project tasks and switches to task selection.
+// Returns true if the transition succeeded, false if the project was not found.
+func (m *Model) openTaskSelectionForEdit() bool {
+	for _, pwt := range m.projectsWithTasks {
+		if pwt.Project.ID == m.editingEntry.Project.ID {
+			m.selectedProject = &pwt.Project
+			m.updateTaskList(pwt.Tasks)
+			if m.editNotesInput != nil {
+				m.editNotesInput.Blur()
+			}
+			if m.editDurationInput != nil {
+				m.editDurationInput.Blur()
+			}
+			m.currentView = ViewSelectTask
+			return true
+		}
+	}
+	return false
 }
 
 func (m Model) handleConfirmDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
