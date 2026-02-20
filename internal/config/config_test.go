@@ -64,7 +64,7 @@ access_token = "abc123def456"
 			t.Fatal("expected error for missing account_id")
 		}
 
-		expectedMsg := "account_id is required.\nSetup instructions: " + SetupInstructionsURL
+		expectedMsg := "account_id is required.\n\nTo get started, set up your Harvest API credentials:\n" + SetupInstructionsURL
 		if err.Error() != expectedMsg {
 			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
 		}
@@ -83,7 +83,7 @@ access_token = "abc123def456"
 			t.Fatal("expected error for missing access_token")
 		}
 
-		expectedMsg := "access_token is required.\nSetup instructions: " + SetupInstructionsURL
+		expectedMsg := "access_token is required.\n\nTo get started, set up your Harvest API credentials:\n" + SetupInstructionsURL
 		if err.Error() != expectedMsg {
 			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
 		}
@@ -116,7 +116,7 @@ access_token = "abc123def456"
 		}
 
 		expectedPath := filepath.Join(tempDir, ".config", "harvest-tui", "config.toml")
-		expectedMsg := "could not load config file. Create " + expectedPath + " with your Harvest credentials.\nSetup instructions: " + SetupInstructionsURL
+		expectedMsg := "could not load config file. Create " + expectedPath + " with your Harvest credentials.\n\nTo get started, set up your Harvest API credentials:\n" + SetupInstructionsURL
 		if err.Error() != expectedMsg {
 			t.Errorf("expected '%s', got '%s'", expectedMsg, err.Error())
 		}
@@ -182,7 +182,7 @@ setting = "value"
 			t.Fatal("expected error for config missing harvest fields")
 		}
 
-		if err.Error() != "invalid config: account_id is required.\nSetup instructions: "+SetupInstructionsURL {
+		if err.Error() != "invalid config: account_id is required.\n\nTo get started, set up your Harvest API credentials:\n"+SetupInstructionsURL {
 			t.Errorf("expected account_id required error, got '%s'", err.Error())
 		}
 	})

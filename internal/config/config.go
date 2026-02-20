@@ -26,7 +26,7 @@ func Load() (*Config, error) {
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("could not load config file. Create %s with your Harvest credentials.\nSetup instructions: %s", configPath, SetupInstructionsURL)
+		return nil, fmt.Errorf("could not load config file. Create %s with your Harvest credentials.\n\nTo get started, set up your Harvest API credentials:\n%s", configPath, SetupInstructionsURL)
 	}
 
 	var config Config
@@ -43,10 +43,10 @@ func Load() (*Config, error) {
 
 func (c *Config) Validate() error {
 	if c.Harvest.AccountID == "" {
-		return fmt.Errorf("account_id is required.\nSetup instructions: %s", SetupInstructionsURL)
+		return fmt.Errorf("account_id is required.\n\nTo get started, set up your Harvest API credentials:\n%s", SetupInstructionsURL)
 	}
 	if c.Harvest.AccessToken == "" {
-		return fmt.Errorf("access_token is required.\nSetup instructions: %s", SetupInstructionsURL)
+		return fmt.Errorf("access_token is required.\n\nTo get started, set up your Harvest API credentials:\n%s", SetupInstructionsURL)
 	}
 	return nil
 }

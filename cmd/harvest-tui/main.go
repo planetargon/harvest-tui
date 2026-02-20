@@ -34,7 +34,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Authentication failed: %v\n", err)
 		fmt.Println("Please check your Harvest credentials in ~/.config/harvest-tui/config.toml")
-		fmt.Printf("Setup instructions: %s\n", config.SetupInstructionsURL)
+		fmt.Printf("\nTo get started, set up your Harvest API credentials:\n%s\n", config.SetupInstructionsURL)
 		os.Exit(1)
 	}
 
