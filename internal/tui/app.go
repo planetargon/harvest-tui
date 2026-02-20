@@ -1243,6 +1243,10 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.editCurrentField == 0 {
 			// Open task selection for the current project
 			if m.editingEntry != nil {
+				if len(m.projectsWithTasks) == 0 {
+					m.setStatusMessage("Loading project tasks, please try again...")
+					return m, nil
+				}
 				// Find the project's tasks
 				var found bool
 				for _, pwt := range m.projectsWithTasks {
@@ -1254,6 +1258,7 @@ func (m Model) handleEditViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					}
 				}
 				if !found {
+					m.setStatusMessage("No tasks found for this project")
 					return m, nil
 				}
 				// Blur text inputs while in task selection

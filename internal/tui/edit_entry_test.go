@@ -245,6 +245,30 @@ func TestEditEntry(t *testing.T) {
 		}
 	})
 
+	t.Run("given edit view when enter pressed on task field before projects loaded then shows loading message", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewEditEntry
+		model.editingEntry = &harvest.TimeEntry{
+			ID:      1,
+			Project: harvest.TimeEntryProject{ID: 1, Name: "Website"},
+			Task:    harvest.TimeEntryTask{ID: 10, Name: "Development"},
+		}
+		model.editTask = &harvest.Task{ID: 10, Name: "Development"}
+		model.editCurrentField = 0
+		// projectsWithTasks is empty (not yet loaded)
+
+		msg := tea.KeyMsg{Type: tea.KeyEnter}
+		updatedModel, _ := model.Update(msg)
+
+		m := updatedModel.(Model)
+		if m.currentView != ViewEditEntry {
+			t.Errorf("expected to stay on ViewEditEntry, got %v", m.currentView)
+		}
+		if m.statusMessage == "" {
+			t.Error("expected a status message about loading")
+		}
+	})
+
 	t.Run("given edit view when enter pressed on task field then opens task selection", func(t *testing.T) {
 		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
 		model.currentView = ViewEditEntry
@@ -416,6 +440,49 @@ func TestEditEntry(t *testing.T) {
 		m = result.(Model)
 		if m.editCurrentField != 0 {
 			t.Errorf("expected field 0 after third tab, got %d", m.editCurrentField)
+		}
+	})
+
+	t.Run("given list view when e pressed then enter on task field opens task selection", func(t *testing.T) {
+		model := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+		model.currentView = ViewList
+		model.timeEntries = []harvest.TimeEntry{
+			{
+				ID:      1,
+				Hours:   1.5,
+				Notes:   "Test entry",
+				Project: harvest.TimeEntryProject{ID: 99, Name: "Website"},
+				Task:    harvest.TimeEntryTask{ID: 42, Name: "Testing"},
+			},
+		}
+		model.selectedEntryIndex = 0
+		model.projectsWithTasks = []harvest.ProjectWithTasks{
+			{
+				Project: harvest.Project{ID: 99, Name: "Website"},
+				Tasks: []harvest.Task{
+					{ID: 42, Name: "Testing"},
+					{ID: 43, Name: "Design"},
+				},
+			},
+		}
+
+		// Press 'e' to enter edit mode
+		result, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+		m := result.(Model)
+
+		if m.currentView != ViewEditEntry {
+			t.Fatalf("expected ViewEditEntry after pressing e, got %v", m.currentView)
+		}
+		if m.editCurrentField != 0 {
+			t.Fatalf("expected editCurrentField to be 0 (task), got %d", m.editCurrentField)
+		}
+
+		// Press enter on task field (field 0)
+		result, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		m = result.(Model)
+
+		if m.currentView != ViewSelectTask {
+			t.Errorf("expected ViewSelectTask after enter on task field, got %v", m.currentView)
 		}
 	})
 }
