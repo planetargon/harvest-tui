@@ -16,7 +16,9 @@ func newTestModel() Model {
 	cfg := &config.Config{Harvest: config.HarvestConfig{AccountID: "12345", AccessToken: "test-token"}}
 	client := harvest.NewClient("12345", "test-token")
 	appState := &state.State{Recents: []state.RecentEntry{}}
-	return NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+	m := NewModel(cfg, client, appState, &harvest.User{FirstName: "Test", LastName: "User"})
+	m.currentView = ViewList
+	return m
 }
 
 func TestBoxBorderAlignment(t *testing.T) {

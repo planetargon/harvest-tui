@@ -79,6 +79,30 @@ func (m Model) buildShellBox(content string, width int, footerKeys []string) str
 	return strings.Join(boxedLines, "\n")
 }
 
+// renderLoadingView renders the loading screen shown during startup.
+func (m Model) renderLoadingView() string {
+	width := m.shellWidth()
+
+	titleBar := m.renderTitleBar()
+
+	loadingMsg := "  " + m.spinner.View() + " " + AccentText.Render("Harvesting your data...")
+
+	contentLines := []string{
+		titleBar,
+		"",
+		loadingMsg,
+		"",
+	}
+
+	content := strings.Join(contentLines, "\n")
+
+	footerKeys := []string{
+		RenderKeybinding("ctrl+c", "quit"),
+	}
+
+	return m.buildShellBox(content, width, footerKeys)
+}
+
 // renderStyledListView renders the main list view with proper styling.
 func (m Model) renderStyledListView() string {
 	// Calculate dimensions
