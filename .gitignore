@@ -2,3 +2,6 @@ bin/
 *.exe
 .DS_Store
 *.log
+.claude/
+.conductor/
+config.toml

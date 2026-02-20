@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/planetargon/argon-harvest-tui/internal/config"
-	"github.com/planetargon/argon-harvest-tui/internal/domain"
 	"github.com/planetargon/argon-harvest-tui/internal/harvest"
 	"github.com/planetargon/argon-harvest-tui/internal/state"
 )
@@ -398,6 +398,35 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// parseDuration parses a duration string in HH:MM format and returns hours as a float64.
+func parseDuration(durationStr string) (float64, error) {
+	durationStr = strings.TrimSpace(durationStr)
+	if durationStr == "" {
+		return 0, fmt.Errorf("duration cannot be empty")
+	}
+
+	parts := strings.Split(durationStr, ":")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("invalid duration format. Use HH:MM (e.g., 1:30)")
+	}
+
+	hours, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration format. Use HH:MM (e.g., 1:30)")
+	}
+
+	minutes, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration format. Use HH:MM (e.g., 1:30)")
+	}
+
+	if hours < 0 || minutes < 0 || minutes >= 60 {
+		return 0, fmt.Errorf("invalid duration format. Use HH:MM (e.g., 1:30)")
+	}
+
+	return float64(hours) + float64(minutes)/60.0, nil
 }
 
 // min returns the minimum of two integers.
@@ -1352,7 +1381,7 @@ func (m Model) handleDurationInputKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				duration = "0:00"
 			}
 			// Validate duration format
-			if _, err := domain.ParseDuration(duration); err != nil {
+			if _, err := parseDuration(duration); err != nil {
 				m.setStatusMessage("Invalid duration format. Use HH:MM (e.g., 1:30)")
 				return m, nil
 			}
@@ -1510,7 +1539,7 @@ func (m Model) createTimeEntry() tea.Cmd {
 	}
 
 	// Parse duration
-	hours, err := domain.ParseDuration(m.newEntryHours)
+	hours, err := parseDuration(m.newEntryHours)
 	if err != nil {
 		return nil
 	}
@@ -1551,7 +1580,7 @@ func (m Model) updateTimeEntry() tea.Cmd {
 	}
 
 	// Validate duration
-	hours, err := domain.ParseDuration(m.editHours)
+	hours, err := parseDuration(m.editHours)
 	if err != nil {
 		// Return an error message
 		return func() tea.Msg {
@@ -1762,7 +1791,7 @@ func (m Model) handleNewEntryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		// Validate duration
-		if _, err := domain.ParseDuration(m.newEntryHours); err != nil {
+		if _, err := parseDuration(m.newEntryHours); err != nil {
 			m.setStatusMessage("Invalid duration format. Use HH:MM (e.g., 1:30)")
 			return m, nil
 		}

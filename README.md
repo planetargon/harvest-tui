@@ -62,7 +62,31 @@ Launch the application:
 ./bin/harvest-tui
 ```
 
-*Note: Usage instructions will be added as features are implemented.*
+### Keybindings
+
+#### Navigation
+| Key | Action |
+|-----|--------|
+| `↑` / `k` | Move selection up |
+| `↓` / `j` | Move selection down |
+| `←` / `h` | Previous day |
+| `→` / `l` | Next day |
+| `t` | Jump to today |
+
+#### Time Entry Actions
+| Key | Action |
+|-----|--------|
+| `n` | Create new time entry |
+| `e` | Edit selected entry |
+| `d` | Delete selected entry |
+| `s` | Start/stop timer on selected entry |
+
+#### General
+| Key | Action |
+|-----|--------|
+| `?` | Toggle help overlay |
+| `q` / `Esc` | Quit / go back |
+| `Ctrl+C` | Force quit |
 
 ## Development
 
@@ -83,4 +107,4 @@ make check
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
