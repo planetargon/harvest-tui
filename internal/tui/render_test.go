@@ -174,7 +174,7 @@ func TestWindowResizeHandling(t *testing.T) {
 		}
 	})
 
-	t.Run("given small terminal when rendered then box width is capped appropriately", func(t *testing.T) {
+	t.Run("given small terminal when rendered then box fills terminal width", func(t *testing.T) {
 		model := newTestModel()
 		model.width = 50
 		model.timeEntries = []harvest.TimeEntry{}
@@ -184,13 +184,12 @@ func TestWindowResizeHandling(t *testing.T) {
 		lines := strings.Split(output, "\n")
 
 		topBorderWidth := lipgloss.Width(lines[0])
-		// Should be capped at width-2 = 48
-		if topBorderWidth != 48 {
-			t.Errorf("expected box width to be 48 for terminal width 50, got %d", topBorderWidth)
+		if topBorderWidth != 50 {
+			t.Errorf("expected box width to be 50 for terminal width 50, got %d", topBorderWidth)
 		}
 	})
 
-	t.Run("given large terminal when rendered then box width is capped at 80", func(t *testing.T) {
+	t.Run("given large terminal when rendered then box uses available width", func(t *testing.T) {
 		model := newTestModel()
 		model.width = 200
 		model.timeEntries = []harvest.TimeEntry{}
@@ -200,8 +199,8 @@ func TestWindowResizeHandling(t *testing.T) {
 		lines := strings.Split(output, "\n")
 
 		topBorderWidth := lipgloss.Width(lines[0])
-		if topBorderWidth != 80 {
-			t.Errorf("expected box width to be capped at 80, got %d", topBorderWidth)
+		if topBorderWidth != 200 {
+			t.Errorf("expected box width to fill terminal width 200, got %d", topBorderWidth)
 		}
 	})
 }
@@ -358,6 +357,7 @@ func TestHelpViewRendering(t *testing.T) {
 	t.Run("given help view when rendered then displays all keybinding categories", func(t *testing.T) {
 		model := newTestModel()
 		model.currentView = ViewHelp
+		model.height = 40
 
 		output := model.View()
 

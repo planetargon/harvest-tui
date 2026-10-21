@@ -45,7 +45,7 @@ func main() {
 	model := tui.NewModel(cfg, harvestClient, appState, user)
 
 	// Create and run the program
-	p := tea.NewProgram(model, tea.WithAltScreen())
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
