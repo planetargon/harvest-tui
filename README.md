@@ -112,6 +112,17 @@ harvest-tui
 | `←` / `h` | Previous day |
 | `→` / `l` | Next day |
 | `t` | Jump to today |
+| `PgUp` / `PgDn` | Scroll a page of entries or help |
+| `Home` / `End` | First / last entry, or top / bottom of help |
+| Mouse wheel | Scroll entries or help |
+
+The interface fills the terminal and adapts when it is resized. The title and
+keybindings remain visible while overflowing content scrolls. In the entry list,
+scrolling moves the selection so entry actions always target a visible entry.
+Use `←` / `h` and `→` / `l` to switch days; each day starts at the top of its list.
+Project and task pickers retain their built-in pagination and filtering.
+If the terminal is too short to display picker items, a notice shows the minimum
+height needed instead of displaying a clipped list.
 
 #### Time Entry Actions
 | Key | Action |

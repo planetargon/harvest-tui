@@ -5,16 +5,13 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/planetargon/harvest-tui/internal/harvest"
 )
 
-// shellWidth returns the standard box width for the shell.
+// shellWidth returns the terminal width, allowing room for both side borders.
 func (m Model) shellWidth() int {
-	width := 65
-	if m.width > 0 {
-		width = min(m.width-2, 80)
-	}
-	return width
+	return max(2, m.width)
 }
 
 // renderTitleBar renders the title bar with date navigation.
@@ -33,56 +30,8 @@ func (m Model) renderTitleBar() string {
 	return titleText + strings.Repeat(" ", spacerWidth) + titleSuffix
 }
 
-// buildShellBox wraps content in a styled box border with parameterized footer keybindings.
-func (m Model) buildShellBox(content string, width int, footerKeys []string) string {
-	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
-
-	// Top border
-	top := "┌" + strings.Repeat("─", width-2) + "┐"
-
-	// Content lines with side borders
-	lines := strings.Split(content, "\n")
-	var boxedLines []string
-	boxedLines = append(boxedLines, borderStyle.Render(top))
-
-	for _, line := range lines {
-		lineWidth := lipgloss.Width(line)
-		padded := line
-		if lineWidth < width-2 {
-			padded = line + strings.Repeat(" ", width-2-lineWidth)
-		} else if lineWidth > width-2 {
-			padded = truncateStyledLine(line, width-2)
-		}
-		boxedLines = append(boxedLines, borderStyle.Render("│")+padded+borderStyle.Render("│"))
-	}
-
-	// Footer with keybindings
-	footerSeparator := borderStyle.Render("├" + strings.Repeat("─", width-2) + "┤")
-
-	footerText := " " + strings.Join(footerKeys, " ")
-	footerWidth := lipgloss.Width(footerText)
-	if footerWidth > width-2 {
-		footerText = truncateStyledLine(footerText, width-2)
-	}
-	footerWidth = lipgloss.Width(footerText)
-	if footerWidth < width-2 {
-		footerText = footerText + strings.Repeat(" ", width-2-footerWidth)
-	}
-
-	// Bottom border
-	bottom := borderStyle.Render("└" + strings.Repeat("─", width-2) + "┘")
-
-	boxedLines = append(boxedLines, footerSeparator)
-	boxedLines = append(boxedLines, borderStyle.Render("│")+footerText+borderStyle.Render("│"))
-	boxedLines = append(boxedLines, bottom)
-
-	return strings.Join(boxedLines, "\n")
-}
-
 // renderLoadingView renders the loading screen shown during startup.
-func (m Model) renderLoadingView() string {
-	width := m.shellWidth()
-
+func (m Model) renderLoadingView() shellView {
 	titleBar := m.renderTitleBar()
 
 	loadingMsg := "  " + m.spinner.View() + " " + AccentText.Render("Harvesting your data...")
@@ -100,11 +49,11 @@ func (m Model) renderLoadingView() string {
 		RenderKeybinding("ctrl+c", "quit"),
 	}
 
-	return m.buildShellBox(content, width, footerKeys)
+	return shellView{content: content, footer: footerKeys}
 }
 
 // renderStyledListView renders the main list view with proper styling.
-func (m Model) renderStyledListView() string {
+func (m Model) renderStyledListView() shellView {
 	// Calculate dimensions
 	width := m.shellWidth()
 
@@ -153,7 +102,7 @@ func (m Model) renderStyledListView() string {
 			"    " + MutedText.Render("Loading..."),
 			"",
 		}
-		return m.wrapInStyledBox(strings.Join(content, "\n"), width)
+		return m.listShell(strings.Join(content, "\n"))
 	}
 
 	// Handle error state
@@ -165,7 +114,7 @@ func (m Model) renderStyledListView() string {
 			"    " + ErrorText.Render("Error: "+m.errorMessage),
 			"",
 		}
-		return m.wrapInStyledBox(strings.Join(content, "\n"), width)
+		return m.listShell(strings.Join(content, "\n"))
 	}
 
 	// Handle empty state
@@ -178,26 +127,25 @@ func (m Model) renderStyledListView() string {
 			"    " + RenderEmptyState(),
 			"",
 		}
-		return m.wrapInStyledBox(strings.Join(content, "\n"), width)
+		return m.listShell(strings.Join(content, "\n"))
 	}
 
-	// Render time entries with styles
-	var entryLines []string
-	for i, entry := range m.timeEntries {
-		isSelected := i == m.selectedEntryIndex
-		entryLines = append(entryLines, m.renderStyledTimeEntry(entry, isSelected, width-4))
-	}
-
-	// Build content
+	// Record the selected entry's line range so navigation can keep it visible.
 	contentLines := []string{titleBar, sectionHeader, divider}
-	contentLines = append(contentLines, entryLines...)
-
-	// Add status message with appropriate styling
-	if statusLine := m.renderStatusLine(); statusLine != "" {
-		contentLines = append(contentLines, "", statusLine)
+	view := shellView{footer: listViewFooterKeys()}
+	line := strings.Count(strings.Join(contentLines, "\n"), "\n")
+	for i, entry := range m.timeEntries {
+		rendered := m.renderStyledTimeEntry(entry, i == m.selectedEntryIndex, width-4)
+		height := lipgloss.Height(rendered)
+		if i == m.selectedEntryIndex {
+			// Skip the card's decorative top padding when space is tight.
+			view.focusStart, view.focusEnd = line+1, line+height
+		}
+		contentLines = append(contentLines, rendered)
+		line += height
 	}
-
-	return m.wrapInStyledBox(strings.Join(contentLines, "\n"), width)
+	view.content = strings.Join(contentLines, "\n")
+	return view
 }
 
 // listViewFooterKeys returns the standard footer keybindings for the list view.
@@ -212,9 +160,9 @@ func listViewFooterKeys() []string {
 	}
 }
 
-// wrapInStyledBox wraps content in a styled box border with list view footer keys.
-func (m Model) wrapInStyledBox(content string, width int) string {
-	return m.buildShellBox(content, width, listViewFooterKeys())
+// listShell adds the standard controls to the entry list.
+func (m Model) listShell(content string) shellView {
+	return shellView{content: content, footer: listViewFooterKeys()}
 }
 
 // renderStyledTimeEntry renders a single time entry with Tokyo Night styling.
@@ -272,10 +220,11 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 		}
 	}
 
-	// Calculate padding for alignment
-	pathWidth := lipgloss.Width(entryPath)
+	// Reserve the duration and indicator before fitting the path to narrow terminals.
 	durationWidth := lipgloss.Width(styledDuration)
 	indicatorWidth := lipgloss.Width(indicator)
+	entryPath = truncateStyledLine(entryPath, maxWidth-durationWidth-indicatorWidth-5)
+	pathWidth := lipgloss.Width(entryPath)
 	padding := maxWidth - pathWidth - durationWidth - indicatorWidth - 4
 	if padding < 1 {
 		padding = 1
@@ -301,7 +250,7 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 
 	// Notes line with Tokyo Night styling
 	if entry.Notes != "" {
-		notesText := RenderNotes(truncateString(entry.Notes, maxWidth-8))
+		notesText := RenderNotes(truncateStyledLine(entry.Notes, maxWidth-9))
 		// Indent notes to align with entry content (3 chars from entry style + 2 indent)
 		lines = append(lines, "     "+notesText)
 	}
@@ -311,13 +260,7 @@ func (m Model) renderStyledTimeEntry(entry harvest.TimeEntry, isSelected bool, m
 
 // truncateStyledLine truncates a styled line to fit within maxWidth
 func truncateStyledLine(line string, maxWidth int) string {
-	// This is a simple implementation that may need refinement for complex styled text
-	if lipgloss.Width(line) <= maxWidth {
-		return line
-	}
-	// For now, return the line as-is if it contains styling
-	// A more sophisticated implementation would parse and preserve styles
-	return line
+	return ansi.Truncate(line, max(0, maxWidth), "…")
 }
 
 // max returns the maximum of two integers.

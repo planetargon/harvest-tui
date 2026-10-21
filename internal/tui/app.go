@@ -11,8 +11,10 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/planetargon/harvest-tui/internal/config"
 	"github.com/planetargon/harvest-tui/internal/harvest"
 	"github.com/planetargon/harvest-tui/internal/state"
@@ -93,6 +95,7 @@ type Model struct {
 	// List components for selection views
 	projectList list.Model
 	taskList    list.Model
+	viewport    viewport.Model
 
 	// Text input components
 	notesInput        *textinput.Model
@@ -134,6 +137,7 @@ func NewModel(cfg *config.Config, client *harvest.Client, appState *state.State,
 		spinner:            s,
 		projectList:        newShellList(newProjectDelegate()),
 		taskList:           newShellList(newTaskDelegate()),
+		viewport:           viewport.New(78, 19),
 		width:              80,
 		height:             24,
 	}
@@ -149,17 +153,23 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
-// Update handles messages and updates the model state.
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// update applies application events before synchronizing the terminal layout.
+func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.setListSizes()
+		m.width = max(0, msg.Width)
+		m.height = max(0, msg.Height)
 		return m, nil
 
 	case tea.KeyMsg:
+		if m.handleScroll(msg) {
+			return m, nil
+		}
 		return m.handleKeyPress(msg)
+
+	case tea.MouseMsg:
+		m.handleScroll(msg)
+		return m, nil
 
 	case spinner.TickMsg:
 		if m.currentView == ViewLoading {
@@ -174,6 +184,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorMessage = "Failed to fetch time entries: " + msg.err.Error()
 		} else {
 			m.timeEntries = msg.entries
+			m.selectedEntryIndex = min(m.selectedEntryIndex, max(0, len(m.timeEntries)-1))
 			m.errorMessage = ""
 			m.lastFetchTime = time.Now()
 		}
@@ -339,8 +350,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// View renders the current view.
-func (m Model) View() string {
+// currentShell describes the content and controls for the current view.
+func (m Model) currentShell() shellView {
 	switch m.currentView {
 	case ViewLoading:
 		return m.renderLoadingView()
@@ -365,7 +376,7 @@ func (m Model) View() string {
 	case ViewBillableToggle:
 		return m.renderBillableToggleView()
 	default:
-		return "Unknown view"
+		return shellView{content: "Unknown view"}
 	}
 }
 
@@ -465,7 +476,7 @@ func truncateString(s string, maxLen int) string {
 	if maxLen <= 3 || len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	return ansi.Truncate(s, maxLen, "...")
 }
 
 // parseDuration parses a duration string in HH:MM format and returns hours as a float64.
@@ -566,13 +577,9 @@ func newTaskDelegate() list.DefaultDelegate {
 
 // setListSizes updates the project and task list dimensions based on the shell width and window height.
 func (m *Model) setListSizes() {
-	contentW := m.shellWidth() - 4
-	contentH := m.height - 7
-	if contentH < 5 {
-		contentH = 5
-	}
-	m.projectList.SetSize(contentW, contentH)
-	m.taskList.SetSize(contentW, contentH)
+	contentW := max(1, m.shellWidth()-4)
+	m.projectList.SetSize(contentW, max(4, m.bodyHeight()-3))
+	m.taskList.SetSize(contentW, max(4, m.bodyHeight()-4))
 }
 
 // newShellList creates a list.Model with title and status bar disabled.
@@ -580,6 +587,7 @@ func newShellList(delegate list.DefaultDelegate) list.Model {
 	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
+	l.SetShowHelp(false)
 	return l
 }
 
@@ -641,7 +649,7 @@ func (m *Model) updateTaskList(tasks []harvest.Task) {
 	m.taskList.SetItems(items)
 }
 
-func (m Model) renderProjectSelectView() string {
+func (m Model) renderProjectSelectView() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -663,10 +671,10 @@ func (m Model) renderProjectSelectView() string {
 		RenderKeybinding("esc", "back"),
 	}
 
-	return m.buildShellBox(content, width, footerKeys)
+	return shellView{content: content, footer: footerKeys}
 }
 
-func (m Model) renderTaskSelectView() string {
+func (m Model) renderTaskSelectView() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -701,10 +709,10 @@ func (m Model) renderTaskSelectView() string {
 		RenderKeybinding("esc", "back"),
 	}
 
-	return m.buildShellBox(content, width, footerKeys)
+	return shellView{content: content, footer: footerKeys}
 }
 
-func (m Model) renderEditView() string {
+func (m Model) renderEditView() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -749,9 +757,6 @@ func (m Model) renderEditView() string {
 		durationView = m.editHours
 	}
 
-	// Status message if any
-	statusLine := m.renderStatusLine()
-
 	contentLines := []string{
 		titleBar,
 		breadcrumb,
@@ -763,9 +768,6 @@ func (m Model) renderEditView() string {
 		"  " + notesLabel + " " + notesView,
 		"",
 		"  " + durationLabel + " " + durationView,
-	}
-	if statusLine != "" {
-		contentLines = append(contentLines, "", statusLine)
 	}
 
 	content := strings.Join(contentLines, "\n")
@@ -781,7 +783,7 @@ func (m Model) renderEditView() string {
 		RenderKeybinding("esc", "cancel"),
 	)
 
-	return m.buildShellBox(content, width, footerKeys)
+	return shellView{content: content, footer: footerKeys, focusStart: 4 + m.editCurrentField*2, focusEnd: 5 + m.editCurrentField*2}
 }
 
 // fieldLabel renders a field label with ▶ indicator if active.
@@ -792,7 +794,7 @@ func fieldLabel(label string, active bool) string {
 	return MutedText.Render("  " + label)
 }
 
-func (m Model) renderConfirmDeleteView() string {
+func (m Model) renderConfirmDeleteView() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -823,10 +825,10 @@ func (m Model) renderConfirmDeleteView() string {
 		RenderKeybinding("esc", "cancel"),
 	}
 
-	return m.buildShellBox(content, width, footerKeys)
+	return shellView{content: content, footer: footerKeys}
 }
 
-func (m Model) renderHelpView() string {
+func (m Model) renderHelpView() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -847,6 +849,9 @@ func (m Model) renderHelpView() string {
 		"    ←/h       Previous day",
 		"    →/l       Next day",
 		"    t         Jump to today",
+		"    PgUp/PgDn Scroll entries or help",
+		"    Home/End  First/last entry or help line",
+		"    Wheel     Scroll entries or help",
 		"",
 		"  " + AccentText.Render("Time Entry Actions"),
 		"    n         New entry",
@@ -867,10 +872,10 @@ func (m Model) renderHelpView() string {
 		RenderKeybinding("esc", "back"),
 	}
 
-	return m.buildShellBox(content, width, footerKeys)
+	return shellView{content: content, footer: footerKeys}
 }
 
-func (m Model) renderNotesInputView() string {
+func (m Model) renderNotesInputView() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -901,10 +906,10 @@ func (m Model) renderNotesInputView() string {
 		RenderKeybinding("esc", "cancel"),
 	}
 
-	return m.buildShellBox(content, width, footerKeys)
+	return (shellView{content: content, footer: footerKeys}).focusLastLine()
 }
 
-func (m Model) renderDurationInputView() string {
+func (m Model) renderDurationInputView() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -934,13 +939,7 @@ func (m Model) renderDurationInputView() string {
 		inputView = "  " + m.durationInput.View()
 	}
 
-	// Status message
-	statusLine := m.renderStatusLine()
-
 	contentLines := []string{titleBar, breadcrumb, info, notesInfo, divider, "", inputView}
-	if statusLine != "" {
-		contentLines = append(contentLines, "", statusLine)
-	}
 
 	content := strings.Join(contentLines, "\n")
 
@@ -949,10 +948,10 @@ func (m Model) renderDurationInputView() string {
 		RenderKeybinding("esc", "back"),
 	}
 
-	return m.buildShellBox(content, width, footerKeys)
+	return (shellView{content: content, footer: footerKeys}).focusLastLine()
 }
 
-func (m Model) renderBillableToggleView() string {
+func (m Model) renderBillableToggleView() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -997,7 +996,7 @@ func (m Model) renderBillableToggleView() string {
 		RenderKeybinding("esc", "back"),
 	}
 
-	return m.buildShellBox(content, width, footerKeys)
+	return (shellView{content: content, footer: footerKeys}).focusLastLine()
 }
 
 // handleListViewKeys handles key presses in the main list view.
@@ -1717,7 +1716,7 @@ func (m Model) updateTimeEntry() tea.Cmd {
 }
 
 // renderNewEntryModal renders the new entry form inside the shell box.
-func (m Model) renderNewEntryModal() string {
+func (m Model) renderNewEntryModal() shellView {
 	width := m.shellWidth()
 
 	titleBar := m.renderTitleBar()
@@ -1762,9 +1761,6 @@ func (m Model) renderNewEntryModal() string {
 		durationView = m.newEntryHours
 	}
 
-	// Status message
-	statusLine := m.renderStatusLine()
-
 	contentLines := []string{
 		titleBar,
 		breadcrumb,
@@ -1777,9 +1773,6 @@ func (m Model) renderNewEntryModal() string {
 		"  " + fieldLabel("Notes:", m.newEntryCurrentField == 2) + " " + notesView,
 		"",
 		"  " + fieldLabel("Duration:", m.newEntryCurrentField == 3) + " " + durationView,
-	}
-	if statusLine != "" {
-		contentLines = append(contentLines, "", statusLine)
 	}
 
 	content := strings.Join(contentLines, "\n")
@@ -1795,7 +1788,7 @@ func (m Model) renderNewEntryModal() string {
 		RenderKeybinding("esc", "cancel"),
 	)
 
-	return m.buildShellBox(content, width, footerKeys)
+	return shellView{content: content, footer: footerKeys, focusStart: 3 + m.newEntryCurrentField*2, focusEnd: 4 + m.newEntryCurrentField*2}
 }
 
 // handleNewEntryKeys handles key presses in the new entry form
